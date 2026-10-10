@@ -71,41 +71,51 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Spectrum border, from the main app: a still, multi-coloured hairline in
-   the aurora's hues, drawn as a masked ring so it follows the element's
-   radius. In the components layer so a utility on the element still wins.
+   Section switcher aurora
+
+   The main app's card aurora: a soft, slowly drifting wash of its four hues
+   behind the switcher while it's open, fading in and out with it.
    --------------------------------------------------------------------------- */
-@layer components {
-  .spectrum-border {
-    position: relative;
-  }
+.switcher-aurora {
+  position: absolute;
+  inset: -14px;
+  z-index: -1;
+  border-radius: 24px;
+  pointer-events: none;
+  background:
+    radial-gradient(42% 52% at 18% 28%, hsl(217 91% 60% / 0.7), transparent 70%),
+    radial-gradient(46% 56% at 82% 22%, hsl(268 85% 66% / 0.6), transparent 70%),
+    radial-gradient(52% 50% at 64% 86%, hsl(174 78% 48% / 0.5), transparent 70%),
+    radial-gradient(38% 46% at 14% 84%, hsl(328 85% 64% / 0.45), transparent 70%);
+  filter: blur(20px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  animation: aurora-drift 16s ease-in-out infinite alternate;
+}
 
-  .spectrum-border::before {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    z-index: 1;
-    border-radius: inherit;
-    padding: 1px;
-    pointer-events: none;
-    background: conic-gradient(
-      from 200deg,
-      hsl(217 91% 60%),
-      hsl(268 85% 66%),
-      hsl(328 85% 64%),
-      hsl(38 92% 58%),
-      hsl(174 78% 48%),
-      hsl(217 91% 60%)
-    );
-    mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    opacity: 0.55;
-  }
+.switcher-aurora[data-open='true'] {
+  opacity: 0.22;
+}
 
-  .dark .spectrum-border::before {
-    opacity: 0.7;
+.dark .switcher-aurora[data-open='true'] {
+  opacity: 0.36;
+}
+
+@keyframes aurora-drift {
+  0% {
+    transform: translate(-2%, -1%) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate(2%, 1.5%) rotate(7deg) scale(1.05);
+  }
+  100% {
+    transform: translate(-1%, 2%) rotate(-5deg) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switcher-aurora {
+    animation: none;
   }
 }
 
