@@ -1,7 +1,7 @@
-@import 'tailwindcss';
-@import 'fumadocs-ui/css/neutral.css';
-@import 'fumadocs-ui/css/preset.css';
-@import 'fumadocs-openapi/css/preset.css';
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+@import "fumadocs-openapi/css/preset.css";
 
 /* ---------------------------------------------------------------------------
    Varis theme
@@ -17,7 +17,7 @@
   --line: #eaeaea;
   --line-strong: #dadada;
   /* The panel's glow: the main app's modal aurora, held still. */
-  --glow-opacity: 0.14;
+  --glow-opacity: 0.08;
 
   --color-fd-background: var(--surface);
   --color-fd-foreground: var(--fg);
@@ -32,7 +32,7 @@
   --fg: #ededed;
   --line: #232323;
   --line-strong: #373737;
-  --glow-opacity: 0.22;
+  --glow-opacity: 0.13;
 
   --color-fd-background: var(--surface);
   --color-fd-foreground: var(--fg);
@@ -54,7 +54,8 @@
   h2,
   h3,
   h4 {
-    font-family: var(--font-heading), var(--font-sans), sans-serif;
+    font-family:
+      var(--font-heading), var(--font-sans), sans-serif;
   }
 }
 
@@ -105,34 +106,36 @@
      the sidebar animates --fd-sidebar-col to 0, so the panel takes the
      whole width. */
   #nd-docs-layout {
-    grid-template: 'sidebar panel' 1fr / var(--fd-sidebar-col) minmax(0, 1fr) !important;
+    grid-template:
+      "sidebar panel" 1fr / var(--fd-sidebar-col) minmax(0, 1fr) !important;
     height: 100dvh;
     overflow: hidden;
   }
 
   /* The sidebar's content stops short of its right edge, leaving room
      before the panel's glow. */
-  #nd-sidebar:not([data-collapsed='true']) {
+  #nd-sidebar:not([data-collapsed="true"]) {
     align-items: flex-start;
     background-color: transparent;
     border-color: transparent;
   }
 
-  #nd-sidebar:not([data-collapsed='true']) > * {
+  #nd-sidebar:not([data-collapsed="true"]) > * {
     width: calc(var(--fd-sidebar-width) - 0.75rem);
   }
 
-  /* The section dropdown. */
-  #nd-sidebar button[aria-haspopup] {
-    border-color: var(--line-strong);
+  /* The title row, nudged up so the space above it matches the space
+     below it. */
+  #nd-sidebar > div:first-child > div:first-child {
+    margin-top: -4px;
   }
 
   /* A collapsed sidebar leaves completely: no peek on hover, and no
      floating button. The toggle and the search live in the topbar, so the
      sidebar's own copies go. */
-  #nd-docs-layout[data-sidebar-collapsed='true'] [data-sidebar-placeholder],
+  #nd-docs-layout[data-sidebar-collapsed="true"] [data-sidebar-placeholder],
   [data-sidebar-panel],
-  #nd-sidebar button[aria-controls='nd-sidebar'],
+  #nd-sidebar button[aria-controls="nd-sidebar"],
   #nd-sidebar [data-search-full] {
     display: none;
   }
@@ -144,7 +147,7 @@
 
   #docs-panel {
     /* The topbar is a solid row for its controls, then a fade below it. */
-    --topbar-row: 2.75rem;
+    --topbar-row: 2rem;
     --topbar-fade: 2rem;
     --fd-docs-height: calc(100dvh - 1.5rem);
     --fd-docs-row-1: var(--topbar-row);
@@ -165,15 +168,14 @@
     background:
       linear-gradient(var(--panel), var(--panel)) padding-box,
       conic-gradient(
-          from 200deg,
-          hsl(217 91% 60% / 0.55),
-          hsl(268 85% 66% / 0.55),
-          hsl(328 85% 64% / 0.55),
-          hsl(38 92% 58% / 0.55),
-          hsl(174 78% 48% / 0.55),
-          hsl(217 91% 60% / 0.55)
-        )
-        border-box;
+      from 200deg,
+      hsl(217 91% 60% / 0.55),
+      hsl(268 85% 66% / 0.55),
+      hsl(328 85% 64% / 0.55),
+      hsl(38 92% 58% / 0.55),
+      hsl(174 78% 48% / 0.55),
+      hsl(217 91% 60% / 0.55)
+    ) border-box;
     /* The aurora's four hues, one from each corner, held close to the
        panel. */
     box-shadow:
@@ -192,8 +194,8 @@
 
     display: grid;
     grid-template:
-      'toc-popover toc-popover' auto
-      'main toc' 1fr
+      "toc-popover toc-popover" auto
+      "main toc" 1fr
       / minmax(0, 1fr) var(--fd-toc-width);
     position: absolute;
     inset: 0 0.25rem 0.25rem 0;
@@ -223,16 +225,19 @@
     align-items: center;
     gap: 0.75rem;
     height: calc(var(--topbar-row) + var(--topbar-fade));
-    padding: 0 0.75rem var(--topbar-fade) 1.25rem;
+    padding: 0 0.75rem 1rem 1.25rem;
     background: linear-gradient(
       to bottom,
       var(--panel) var(--topbar-row),
-      color-mix(in srgb, var(--panel) 82%, transparent)
-        calc(var(--topbar-row) + var(--topbar-fade) * 0.25),
-      color-mix(in srgb, var(--panel) 50%, transparent)
-        calc(var(--topbar-row) + var(--topbar-fade) * 0.5),
-      color-mix(in srgb, var(--panel) 18%, transparent)
-        calc(var(--topbar-row) + var(--topbar-fade) * 0.75),
+      color-mix(in srgb, var(--panel) 82%, transparent) calc(
+        var(--topbar-row) + var(--topbar-fade) * 0.25
+      ),
+      color-mix(in srgb, var(--panel) 50%, transparent) calc(
+        var(--topbar-row) + var(--topbar-fade) * 0.5
+      ),
+      color-mix(in srgb, var(--panel) 18%, transparent) calc(
+        var(--topbar-row) + var(--topbar-fade) * 0.75
+      ),
       transparent
     );
     /* Only the controls take clicks; the fade lets them through. */

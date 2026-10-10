@@ -11,6 +11,8 @@ import { notFound } from 'next/navigation';
 import { getMDXComponents } from '@/components/mdx';
 import { OpenAPIPage } from '@/components/api-page';
 import { DocsPanel } from '@/components/docs-panel';
+import { PageFooter } from '@/components/page-footer';
+import { findNeighbour } from 'fumadocs-core/page-tree';
 import type { Metadata } from 'next';
 import { createRelativeLink } from 'fumadocs-ui/mdx';
 import { getPageMarkdownUrl, githubUrl } from '@/lib/shared';
@@ -22,12 +24,13 @@ export default async function Page(props: PageProps<'/[[...slug]]'>) {
 
   // From md up, the breadcrumb lives in the panel's topbar.
   const breadcrumb = { className: 'md:hidden' };
+  const footer = { component: <PageFooter {...findNeighbour(source.getPageTree(), page.url)} /> };
 
   // API reference pages come from openapi.yaml, not from MDX files.
   if (page.type === 'openapi') {
     return (
       <DocsPanel>
-        <DocsPage toc={page.data.toc} breadcrumb={breadcrumb} full>
+        <DocsPage toc={page.data.toc} breadcrumb={breadcrumb} footer={footer} full>
           <DocsTitle>{page.data.title}</DocsTitle>
           <DocsDescription>{page.data.description}</DocsDescription>
           <DocsBody>
@@ -43,7 +46,12 @@ export default async function Page(props: PageProps<'/[[...slug]]'>) {
 
   return (
     <DocsPanel>
-      <DocsPage toc={page.data.toc} breadcrumb={breadcrumb} full={page.data.full}>
+      <DocsPage
+        toc={page.data.toc}
+        breadcrumb={breadcrumb}
+        footer={footer}
+        full={page.data.full}
+      >
         <DocsTitle>{page.data.title}</DocsTitle>
         <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
         <div className="flex flex-row gap-2 items-center border-b pb-6">
