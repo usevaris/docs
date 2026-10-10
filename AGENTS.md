@@ -16,15 +16,16 @@ The docs have two audiences:
 
 ```
 docs/
+├── openapi.yaml            The Varis API contract, for every component.
 ├── content/docs/           The guides, as MDX. meta.json orders the sidebar.
 ├── app/(docs)/             The docs layout and the page renderer.
 ├── app/api/search/         The search index (Orama).
 ├── app/llms*.txt, llms.mdx Markdown copies of every page, for AI readers.
-├── app/og/                 Open Graph images.
+├── app/global.css          The Varis theme: colours, fonts, and the panel.
 ├── components/api-page.tsx The API reference renderer. The playground is off.
 ├── lib/source.ts           Loads the MDX guides and the OpenAPI pages.
-├── lib/openapi.ts          Reads openapi.yaml from varis-ts at build time.
-├── lib/shared.ts           basePath, withBasePath, and route constants.
+├── lib/openapi.ts          Reads openapi.yaml at build time.
+├── lib/shared.ts           basePath, withBasePath, and the markdown URLs.
 └── proxy.ts                Serves page markdown at <page>.md or by Accept header.
 ```
 
@@ -32,7 +33,7 @@ docs/
 
 - `npm install`
 - `npm run dev`: serves the docs at `http://localhost:3001/docs`.
-- `npm run build`: builds the site, fetching `openapi.yaml` from GitHub.
+- `npm run build`: builds the site.
 - `npm run types:check` and `npm run lint`: run both before you finish.
 
 ## How the site is served
@@ -44,14 +45,14 @@ app's deployment at `https://varis-docs.vercel.app`.
 - `next.config.mjs` sets `basePath: '/docs'`. Every route here lives under
   it, including `/docs/_next` assets and `/docs/api/search`.
 - Next adds the base path to `<Link>` and router paths. Anything fetched by
-  URL (search, markdown, images) needs `withBasePath` from `lib/shared.ts`.
+  URL (search, markdown) needs `withBasePath` from `lib/shared.ts`.
 - In MDX, link to other pages as `/quickstart`, not `/docs/quickstart`.
 - The API reference lives under `/docs/reference`, one page per operation,
-  generated from `openapi.yaml` in
-  [`usevaris/varis-ts`](https://github.com/usevaris/varis-ts) on every
-  build. Never under `/docs/api`, which holds the search route.
-- `openapi.yaml` is the canonical API contract. Fix an API description there,
-  in `varis-ts`, not here.
+  generated from `openapi.yaml` on every build. Never under `/docs/api`,
+  which holds the search route.
+- `openapi.yaml` is the canonical API contract for the API, every SDK, and
+  the CLI. Fix an API description there, and change the API in `varis` in
+  step with it.
 
 ## Writing rules
 

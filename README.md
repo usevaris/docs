@@ -12,9 +12,8 @@ main Varis app forwards `/docs` and `/docs/*` to it at
 
 - Guides are MDX files in `content/docs`.
 - The API reference under `/docs/reference` is generated at build time from
-  `openapi.yaml` in [`varis-ts`](https://github.com/usevaris/varis-ts). A
-  Vercel deploy hook rebuilds the docs when the spec changes.
-- Anything fetched by URL (search, markdown, images) takes `withBasePath` from
+  `openapi.yaml`, the Varis API contract, which lives in this repository.
+- Anything fetched by URL (search, markdown) takes `withBasePath` from
   `lib/shared.ts`. Next adds the base path to links on its own.
 
 ## Run locally
