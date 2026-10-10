@@ -1,14 +1,15 @@
 import type { ReactNode } from 'react';
-import { PanelLeftOpen } from 'lucide-react';
+import { PanelLeft } from 'lucide-react';
 import { SidebarCollapseTrigger } from 'fumadocs-ui/components/sidebar/base';
 import { Breadcrumb } from 'fumadocs-ui/layouts/docs/page/slots/breadcrumb';
+import { FullSearchTrigger } from 'fumadocs-ui/layouts/shared/slots/search-trigger';
 import { ThemeSwitch } from 'fumadocs-ui/layouts/shared/slots/theme-switch';
 import { githubUrl } from '@/lib/shared';
 
 /**
  * The raised panel that holds a page, beside the sidebar: a fixed height, with
- * a topbar (the sidebar toggle while the sidebar is collapsed, the
- * breadcrumb, GitHub, and the theme switch) laid over
+ * a topbar (the sidebar toggle, the breadcrumb, search, GitHub, and the
+ * theme switch) laid over
  * #docs-scroll, where the page scrolls and slides under the topbar.
  * global.css lays it out and draws it. Below md it dissolves into Fumadocs'
  * own layout, which has its own header.
@@ -17,21 +18,13 @@ export function DocsPanel({ children }: { children: ReactNode }) {
   return (
     <div id="docs-panel">
       <header id="docs-topbar">
-        {/* Shown only while the sidebar is collapsed; see global.css. */}
-        <SidebarCollapseTrigger
-          id="docs-sidebar-toggle"
-          aria-label="Show sidebar"
-          className="size-6 items-center justify-center rounded-md text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
-        >
-          <PanelLeftOpen className="size-3.5" />
+        <SidebarCollapseTrigger aria-label="Toggle sidebar" className={iconButton}>
+          <PanelLeft className="size-4.5" />
         </SidebarCollapseTrigger>
         <Breadcrumb includePage className="min-w-0" />
-        <div className="ms-auto flex items-center gap-1.5">
-          <a
-            href={githubUrl}
-            aria-label="GitHub"
-            className="inline-flex size-6 items-center justify-center rounded-md text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
-          >
+        <div className="ms-auto flex items-center gap-3">
+          <FullSearchTrigger hideIfDisabled className="w-52 py-1 text-[0.8125rem]" />
+          <a href={githubUrl} aria-label="GitHub" className={iconButton}>
             <GitHubIcon />
           </a>
           <ThemeSwitch className="p-0.5 *:size-5 *:p-1" />
@@ -42,9 +35,13 @@ export function DocsPanel({ children }: { children: ReactNode }) {
   );
 }
 
+// The icon is the button: no padding, no hover background.
+const iconButton =
+  'inline-flex shrink-0 text-fd-muted-foreground transition-colors hover:text-fd-foreground';
+
 function GitHubIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-3.5" fill="currentColor">
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-4.5" fill="currentColor">
       <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
     </svg>
   );

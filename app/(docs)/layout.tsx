@@ -6,11 +6,15 @@ export default function Layout({ children }: LayoutProps<"/">) {
   return (
     <DocsLayout
       tree={source.getPageTree()}
-      nav={{ title: appName, url: "/" }}
+      nav={{
+        title: <span className="font-heading text-lg font-bold">{appName}</span>,
+        url: "/",
+      }}
       githubUrl={githubUrl}
-      // From md up, components/docs-panel.tsx shows GitHub and the theme
-      // switch in its topbar and global.css hides these sidebar copies.
-      // Below md they stay in the sidebar drawer.
+      // From md up, components/docs-panel.tsx shows the sidebar toggle,
+      // search, GitHub, and the theme switch in its topbar, and global.css
+      // hides the sidebar's copies. Below md they stay in Fumadocs' header
+      // and drawer.
       themeSwitch={{ enabled: true }}
     >
       {children}

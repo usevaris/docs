@@ -15,6 +15,7 @@
   --panel: #ffffff;
   --fg: #171717;
   --line: #eaeaea;
+  --line-strong: #dadada;
   /* The panel's glow: the main app's modal aurora, held still. */
   --glow-opacity: 0.14;
 
@@ -30,6 +31,7 @@
   --panel: #121212;
   --fg: #ededed;
   --line: #232323;
+  --line-strong: #373737;
   --glow-opacity: 0.22;
 
   --color-fd-background: var(--surface);
@@ -108,24 +110,31 @@
     overflow: hidden;
   }
 
+  /* The sidebar's content stops short of its right edge, leaving room
+     before the panel's glow. */
   #nd-sidebar:not([data-collapsed='true']) {
+    align-items: flex-start;
     background-color: transparent;
     border-color: transparent;
   }
 
+  #nd-sidebar:not([data-collapsed='true']) > * {
+    width: calc(var(--fd-sidebar-width) - 0.75rem);
+  }
+
+  /* The section dropdown. */
+  #nd-sidebar button[aria-haspopup] {
+    border-color: var(--line-strong);
+  }
+
   /* A collapsed sidebar leaves completely: no peek on hover, and no
-     floating button. Its toggle moves into the topbar. */
+     floating button. The toggle and the search live in the topbar, so the
+     sidebar's own copies go. */
   #nd-docs-layout[data-sidebar-collapsed='true'] [data-sidebar-placeholder],
-  [data-sidebar-panel] {
+  [data-sidebar-panel],
+  #nd-sidebar button[aria-controls='nd-sidebar'],
+  #nd-sidebar [data-search-full] {
     display: none;
-  }
-
-  #docs-sidebar-toggle {
-    display: none;
-  }
-
-  #nd-docs-layout[data-sidebar-collapsed='true'] #docs-sidebar-toggle {
-    display: inline-flex;
   }
 
   /* GitHub and the theme switch move to the topbar. */

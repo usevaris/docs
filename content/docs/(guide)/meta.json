@@ -1,6 +1,5 @@
 {
   "title": "User Guide",
-  "description": "Publish a service, or call one from an agent.",
   "root": true,
   "pages": ["index"]
 }
