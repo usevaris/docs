@@ -1,16 +1,18 @@
 'use client';
 import { Fragment, useState, type ReactNode } from 'react';
+import { Check, ChevronDown, Copy } from 'lucide-react';
 import { useOpenAPI } from 'fumadocs-openapi';
 import type { OperationObject } from 'fumadocs-openapi';
 import { MethodBadge } from './method-badge';
 
 /**
  * The readable column of an API reference page, drawn from openapi.yaml:
- * title, endpoint, description, then Authorizations, parameters, Body, and
- * Response. Every field is one row: its name, its type and whether it's
- * required, then its description, allowed values, and default. Nested
- * fields follow under their parent. Nothing to expand, search, or toggle,
- * except which response status to read.
+ * title, endpoint, description, then parameters (credentials among the
+ * headers), Body, and Response. Every field is one row: its name, its type
+ * and whether it's required, then its description, allowed values, and
+ * default. Nested fields follow under their parent. The only controls are
+ * copying the path, showing a long list of options, and picking which
+ * response status to read.
  */
 export function ApiOperation({
   operation,
@@ -25,7 +27,12 @@ export function ApiOperation({
   const r = doc.resolve as <T>(node: T) => T;
   const op = r(operation) as Operation;
 
-  const parameters = (op.parameters ?? []).map((p) => r(p) as Parameter);
+  // Credentials are headers (or, for some API keys, query parameters), so
+  // they're listed with the others, first.
+  const parameters = [
+    ...credentials(op, doc.dereferenced as unknown as Spec, r),
+    ...(op.parameters ?? []).map((p) => r(p) as Parameter),
+  ];
   const groups: [string, Parameter[]][] = [
     ['Path parameters', parameters.filter((p) => p.in === 'path')],
     ['Query parameters', parameters.filter((p) => p.in === 'query')],
@@ -38,13 +45,9 @@ export function ApiOperation({
   return (
     <>
       <h1 className="mb-4 text-[1.75em] font-semibold">{op.summary}</h1>
-      <div className="mb-8 flex items-center gap-3 rounded-lg border px-3 py-2.5">
-        <MethodBadge method={method} />
-        <code className="min-w-0 truncate font-mono text-[0.9375rem]">{path}</code>
-      </div>
+      <Endpoint method={method} path={path} />
       {op.description && <Markdown text={op.description} />}
 
-      <Authorizations operation={op} />
 
       {groups.map(
         ([title, items]) =>
@@ -54,7 +57,8 @@ export function ApiOperation({
                 <Field
                   key={p.name}
                   name={p.name}
-                  schema={r(p.schema ?? {})}
+                  type={p.type}
+                  schema={p.schema && r(p.schema)}
                   required={p.required}
                   description={p.description}
                 />
@@ -75,35 +79,54 @@ export function ApiOperation({
   );
 }
 
-function Authorizations({ operation }: { operation: Operation }) {
-  const { doc } = useOpenAPI();
-  const r = doc.resolve as <T>(node: T) => T;
-  const spec = doc.dereferenced as unknown as Spec;
-  const requirements = operation.security ?? spec.security ?? [];
-  if (requirements.length === 0) return null;
-
-  // Each requirement is one way to authenticate; its schemes go together.
-  // With a single way, every header in it is required.
-  const names = [...new Set(requirements.flatMap((req) => Object.keys(req)))];
-  const schemes = names.map((name) => r(spec.components?.securitySchemes?.[name]) as SecurityScheme);
+function Endpoint({ method, path }: { method: string; path: string }) {
+  const [copied, setCopied] = useState(false);
 
   return (
-    <Section title="Authorizations">
-      {schemes.map((scheme, i) => {
-        const bearer = scheme.type === 'http' && scheme.scheme === 'bearer';
-        return (
-          <Field
-            key={i}
-            name={bearer ? 'Authorization' : (scheme.name ?? names[i])}
-            type={bearer ? 'Bearer <token>' : 'string'}
-            location={bearer ? 'header' : scheme.in}
-            required={requirements.length === 1}
-            description={scheme.description}
-          />
-        );
-      })}
-    </Section>
+    <div className="mb-8 flex items-center gap-3 rounded-lg border px-3 py-2.5">
+      <MethodBadge method={method} />
+      <code className="min-w-0 flex-1 truncate font-mono text-[0.9375rem]">{path}</code>
+      <button
+        type="button"
+        aria-label="Copy path"
+        onClick={() => {
+          void navigator.clipboard.writeText(path);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+        className="shrink-0 text-fd-muted-foreground transition-colors hover:text-fd-foreground"
+      >
+        {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+      </button>
+    </div>
   );
+}
+
+/**
+ * The operation's credentials as parameters. Each security requirement is
+ * one way to authenticate, and its schemes go together; with a single way,
+ * every one of them is required.
+ */
+function credentials(op: Operation, spec: Spec, r: Resolve): Parameter[] {
+  const requirements = op.security ?? spec.security ?? [];
+  const names = [...new Set(requirements.flatMap((req) => Object.keys(req)))];
+
+  return names.flatMap((name): Parameter[] => {
+    const scheme = r(spec.components?.securitySchemes?.[name]) as SecurityScheme | undefined;
+    if (!scheme) return [];
+    const bearer = scheme.type === 'http' && scheme.scheme === 'bearer';
+    const location = bearer ? 'header' : scheme.in;
+    if (location !== 'header' && location !== 'query') return [];
+    return [
+      {
+        name: bearer ? 'Authorization' : (scheme.name ?? name),
+        in: location,
+        type: bearer ? 'Bearer <token>' : 'string',
+        required: requirements.length === 1,
+        description: scheme.description,
+      },
+    ];
+  });
 }
 
 function Responses({ operation }: { operation: Operation }) {
@@ -189,14 +212,12 @@ function Field({
   name,
   schema,
   type,
-  location,
   required,
   description,
 }: {
   name: string;
   schema?: Schema;
   type?: string;
-  location?: string;
   required?: boolean;
   description?: string;
 }) {
@@ -210,7 +231,6 @@ function Field({
       <div className="flex flex-wrap items-center gap-2">
         <code className="font-mono text-[0.9375rem] font-semibold text-(--accent)">{name}</code>
         <Pill>{type ?? (schema ? typeLabel(schema, r) : 'string')}</Pill>
-        {location && <Pill>{location}</Pill>}
         {required && <Pill tone="required">required</Pill>}
       </div>
       {description && (
@@ -218,17 +238,7 @@ function Field({
           <Markdown text={description} />
         </div>
       )}
-      {values && (
-        <p className="mt-3 text-[0.875rem] leading-8 text-fd-muted-foreground">
-          Available options:{' '}
-          {values.map((v, i) => (
-            <Fragment key={String(v)}>
-              {i > 0 && ', '}
-              <Pill>{String(v)}</Pill>
-            </Fragment>
-          ))}
-        </p>
-      )}
+      {values && <Options values={values} />}
       {schema?.default !== undefined && (
         <p className="mt-3 text-[0.875rem] text-fd-muted-foreground">
           Default: <Pill>{JSON.stringify(schema.default)}</Pill>
@@ -238,6 +248,43 @@ function Field({
         <div className="mt-4 border-s ps-5">
           <Fields schema={nested} />
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Available options:" and the values. Past 12, the list shows its first
+ * two lines, the second fading out from its top, with "Show all" over the
+ * fade.
+ */
+function Options({ values }: { values: unknown[] }) {
+  const [all, setAll] = useState(false);
+  const long = values.length > 12 && !all;
+
+  return (
+    <div className="relative mt-3">
+      <p
+        className={`text-[0.875rem] leading-8 text-fd-muted-foreground ${long ? 'max-h-16 overflow-hidden' : ''}`}
+        style={long ? { maskImage: 'linear-gradient(to bottom, #000 2rem, transparent 4rem)' } : undefined}
+      >
+        Available options:{' '}
+        {values.map((v, i) => (
+          <Fragment key={String(v)}>
+            {i > 0 && ', '}
+            <Pill>{String(v)}</Pill>
+          </Fragment>
+        ))}
+      </p>
+      {long && (
+        <button
+          type="button"
+          onClick={() => setAll(true)}
+          className="absolute end-0 bottom-0 inline-flex items-center gap-1 text-[0.8125rem] text-fd-muted-foreground transition-colors hover:text-fd-foreground"
+        >
+          Show all
+          <ChevronDown className="size-3.5" />
+        </button>
       )}
     </div>
   );
@@ -367,6 +414,8 @@ interface Schema {
 interface Parameter {
   name: string;
   in: 'path' | 'query' | 'header' | 'cookie';
+  /** Set for credentials, which have no schema. */
+  type?: string;
   required?: boolean;
   description?: string;
   schema?: Schema;

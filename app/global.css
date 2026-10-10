@@ -127,6 +127,11 @@
     width: calc(var(--fd-sidebar-width) - 0.75rem);
   }
 
+  /* Page names a pixel under Fumadocs' 14px. */
+  #nd-sidebar {
+    font-size: 0.8125rem;
+  }
+
   /* The title row, nudged up so the space above it matches the space
      below it. */
   #nd-sidebar > div:first-child > div:first-child {

@@ -17,7 +17,7 @@ export const OpenAPIPage = createOpenAPIPage({
         <div className="not-prose w-full max-w-[560px] min-w-0 leading-7">
           <ApiOperation operation={operation} method={method} path={path} />
         </div>
-        <div className="w-full min-w-0 text-sm @4xl:sticky @4xl:top-[calc(var(--fd-docs-row-1,2rem)+2rem)] @4xl:max-w-[28rem]">
+        <div className="w-full min-w-0 text-sm @4xl:sticky @4xl:top-[calc(var(--fd-docs-row-1,2rem)+2rem)] @4xl:max-w-[24rem]">
           {slots.apiExample}
         </div>
       </div>
