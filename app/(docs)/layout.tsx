@@ -82,7 +82,7 @@ function itemName(item: PageTree.Item) {
   }
   return (
     <span key="name" className="flex min-w-0 items-center gap-2">
-      <MethodBadge method={method} className="tree-method w-12" />
+      <MethodBadge method={method} compact className="tree-method min-w-9" />
       <span className="truncate">{item.name}</span>
     </span>
   );

@@ -1,13 +1,24 @@
 /**
  * An HTTP method in a bordered pill, coloured by what it does: green reads,
- * blue creates, amber changes, red deletes.
+ * blue creates, amber changes, red deletes. `compact` tightens it for the
+ * sidebar.
  */
-export function MethodBadge({ method, className = '' }: { method: string; className?: string }) {
+export function MethodBadge({
+  method,
+  compact = false,
+  className = '',
+}: {
+  method: string;
+  compact?: boolean;
+  className?: string;
+}) {
   const upper = method.toUpperCase();
   return (
     <span
       data-method={upper}
-      className={`inline-flex shrink-0 items-center justify-center rounded-md border px-1.5 font-mono text-[0.625rem] leading-4 font-semibold ${colours[upper] ?? colours.GET} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-md border font-mono font-semibold ${
+        compact ? 'px-1 text-[0.625rem] leading-4' : 'px-1.5 text-xs leading-5'
+      } ${colours[upper] ?? colours.GET} ${className}`}
     >
       {upper}
     </span>

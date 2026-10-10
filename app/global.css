@@ -16,6 +16,8 @@
   --fg: #171717;
   --line: #eaeaea;
   --line-strong: #dadada;
+  /* The one chromatic colour, as in the main app: API field names. */
+  --accent: #2563eb;
   /* The panel's glow: the main app's modal aurora, held still. */
   --glow-opacity: 0.08;
 
@@ -32,6 +34,7 @@
   --fg: #ededed;
   --line: #232323;
   --line-strong: #373737;
+  --accent: #60a5fa;
   --glow-opacity: 0.13;
 
   --color-fd-background: var(--surface);
@@ -283,55 +286,6 @@
   #docs-scroll [data-layout-content][data-full='true'] {
     max-width: none;
   }
-}
-
-/* ---------------------------------------------------------------------------
-   API reference
-
-   Fumadocs draws each section as a bordered card. In the readable column
-   they become plain lists under a ruled heading, each field a row: its
-   name, its type, and "required", with the description beneath.
-   --------------------------------------------------------------------------- */
-.api-op-main .rounded-xl.border.bg-fd-card {
-  border-width: 0;
-  border-radius: 0;
-  background: transparent;
-  overflow: visible;
-}
-
-.api-op-main .rounded-xl.border.bg-fd-card > .px-3 {
-  padding-inline: 0;
-}
-
-.api-op-main div:has(> h2) {
-  margin-top: 2.5rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--line);
-}
-
-.api-op-main h2 {
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-/* Field names in the text colour, not the accent. */
-.api-op-main .text-fd-primary {
-  color: var(--fg);
-  font-weight: 600;
-}
-
-/* "required" in words, not a red asterisk. */
-.api-op-main span.text-red-400 {
-  font-size: 0;
-}
-
-.api-op-main span.text-red-400::after {
-  content: 'required';
-  margin-inline-start: 0.375rem;
-  font-family: var(--font-sans), sans-serif;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: hsl(0 72% 51%);
 }
 
 /* The breadcrumbs share the sidebar's tree, method badges included; they

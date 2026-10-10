@@ -1,8 +1,6 @@
 export const appName = 'Varis Docs';
 export const siteUrl = 'https://usevaris.com';
 export const githubUrl = 'https://github.com/usevaris/docs';
-// The API's origin, as in the servers list of openapi.yaml.
-export const apiOrigin = 'https://api.usevaris.com';
 
 // The docs are a zone of usevaris.com: the main app rewrites /docs and
 // /docs/* to this app, so every route here lives under basePath. Next adds
