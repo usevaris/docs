@@ -1,6 +1,6 @@
 import { createGetUrl } from 'fumadocs-core/source';
 
-export const appName = 'Varis';
+export const appName = 'Varis Docs';
 
 // The docs are a zone of usevaris.com: the main app rewrites /docs and
 // /docs/* to this app, so every route here lives under basePath. Next adds

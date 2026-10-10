@@ -1,0 +1,73 @@
+# Instructions for coding agents in docs
+
+This repository holds the public documentation for Varis, a marketplace where
+AI agents discover, pay for, and invoke HTTPS services that developers
+publish. It is a [Fumadocs](https://fumadocs.dev) site on Next.js, served at
+`usevaris.com/docs`.
+
+The docs have two audiences:
+
+- **Providers**, developers who publish a service with the TypeScript SDK
+  (`@usevaris/sdk`) and the `varis` CLI, or by hand with `varis.json`.
+- **Agent developers**, who call `POST /v1/invoke` on `api.usevaris.com` or
+  connect the MCP server with an agent key.
+
+## Layout
+
+```
+docs/
+├── content/docs/           The guides, as MDX. meta.json orders the sidebar.
+├── app/(docs)/             The docs layout and the page renderer.
+├── app/api/search/         The search index (Orama).
+├── app/llms*.txt, llms.mdx Markdown copies of every page, for AI readers.
+├── app/og/                 Open Graph images.
+├── components/api-page.tsx The API reference renderer. The playground is off.
+├── lib/source.ts           Loads the MDX guides and the OpenAPI pages.
+├── lib/openapi.ts          Reads openapi.yaml from varis-ts at build time.
+├── lib/shared.ts           basePath, withBasePath, and route constants.
+└── proxy.ts                Serves page markdown at <page>.md or by Accept header.
+```
+
+## Commands
+
+- `npm install`
+- `npm run dev`: serves the docs at `http://localhost:3001/docs`.
+- `npm run build`: builds the site, fetching `openapi.yaml` from GitHub.
+- `npm run types:check` and `npm run lint`: run both before you finish.
+
+## How the site is served
+
+The docs are a zone of `usevaris.com`. Vercel domains are hostnames, so the
+main Varis app owns `usevaris.com` and forwards `/docs` and `/docs/*` to this
+app's deployment at `https://varis-docs.vercel.app`.
+
+- `next.config.mjs` sets `basePath: '/docs'`. Every route here lives under
+  it, including `/docs/_next` assets and `/docs/api/search`.
+- Next adds the base path to `<Link>` and router paths. Anything fetched by
+  URL (search, markdown, images) needs `withBasePath` from `lib/shared.ts`.
+- In MDX, link to other pages as `/quickstart`, not `/docs/quickstart`.
+- The API reference lives under `/docs/reference`, one page per operation,
+  generated from `openapi.yaml` in
+  [`usevaris/varis-ts`](https://github.com/usevaris/varis-ts) on every
+  build. Never under `/docs/api`, which holds the search route.
+- `openapi.yaml` is the canonical API contract. Fix an API description there,
+  in `varis-ts`, not here.
+
+## Writing rules
+
+Follow the Google developer documentation style guide: second person, active
+voice, present tense, conditions before instructions, sentence-case headings,
+and code font for code. Don't use em dashes.
+
+- Write the name as "Varis", never as a domain.
+- Every URL is on `usevaris.com`. The API is `https://api.usevaris.com`.
+- Say "credits", never "tokens", for the balance. Show every price in US
+  dollars or cents, never in credits.
+- Test every command and code sample against production before you publish
+  it.
+- Leave out anything that isn't built yet, rather than describing it as
+  coming soon.
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.

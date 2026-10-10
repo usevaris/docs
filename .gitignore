@@ -37,3 +37,9 @@ next-env.d.ts
 
 # fumadocs-mdx generated content
 .source
+
+# personal Claude Code context, imports private plans
+CLAUDE.local.md
+
+# private working notes
+.docs/
