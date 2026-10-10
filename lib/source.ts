@@ -26,7 +26,8 @@ export const source = loader(
   },
   {
     baseUrl: '/',
-    plugins: [lucideIconsPlugin(), openapi.loaderPlugin()],
+    // No openapi.loaderPlugin(): app/(docs)/layout.tsx draws method badges.
+    plugins: [lucideIconsPlugin()],
   },
 );
 

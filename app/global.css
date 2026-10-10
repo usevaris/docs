@@ -249,6 +249,13 @@
   }
 }
 
+/* The breadcrumbs share the sidebar's tree, method badges included; they
+   read better as plain titles. */
+#docs-topbar .tree-method,
+#nd-page .tree-method {
+  display: none;
+}
+
 /* Only the phone layout scrolls the page. */
 @media (width < 48rem) {
   html {
