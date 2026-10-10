@@ -1,6 +1,6 @@
 import { llms, loader } from 'fumadocs-core/source';
 import { lucideIconsPlugin } from 'fumadocs-core/source/lucide-icons';
-import { docsRoute, withBasePath } from './shared';
+import { withBasePath } from './shared';
 import { defineDocs } from 'fumadocs-mdx/macro';
 import { metaSchema, pageSchema } from 'fumadocs-core/source/schema';
 import { openapi } from './openapi';
@@ -18,7 +18,6 @@ const docs = defineDocs({
   },
 });
 
-// See https://fumadocs.dev/docs/headless/source-api for more info
 export const source = loader(
   {
     docs: docs.toFumadocsSource(),
@@ -26,7 +25,7 @@ export const source = loader(
     openapi: await openapi.staticSource({ baseDir: 'reference' }),
   },
   {
-    baseUrl: docsRoute,
+    baseUrl: '/',
     plugins: [lucideIconsPlugin(), openapi.loaderPlugin()],
   },
 );

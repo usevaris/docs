@@ -3,10 +3,211 @@
 @import 'fumadocs-ui/css/preset.css';
 @import 'fumadocs-openapi/css/preset.css';
 
-html {
-  scrollbar-gutter: stable;
+/* ---------------------------------------------------------------------------
+   Varis theme
+
+   The main app's colours on two layers: the page surface, where the sidebar
+   sits, and the panel, the raised container that holds the content.
+   Fumadocs sets dark mode with a .dark class, which follows the system.
+   --------------------------------------------------------------------------- */
+:root {
+  --surface: #f5f5f5;
+  --panel: #ffffff;
+  --fg: #171717;
+  --line: #eaeaea;
+  /* The panel's glow: the main app's modal aurora, held still. */
+  --glow-opacity: 0.14;
+
+  --color-fd-background: var(--surface);
+  --color-fd-foreground: var(--fg);
+  --color-fd-card: var(--panel);
+  --color-fd-popover: var(--panel);
+  --color-fd-border: var(--line);
 }
 
+.dark {
+  --surface: #0a0a0a;
+  --panel: #121212;
+  --fg: #ededed;
+  --line: #232323;
+  --glow-opacity: 0.22;
+
+  --color-fd-background: var(--surface);
+  --color-fd-foreground: var(--fg);
+  --color-fd-card: var(--panel);
+  --color-fd-popover: var(--panel);
+  --color-fd-border: var(--line);
+}
+
+@theme inline {
+  --font-sans: var(--font-ubuntu-sans);
+  --font-mono: var(--font-ubuntu-mono);
+  --font-heading: var(--font-ubuntu);
+}
+
+/* Headings in Ubuntu, as in the main app. In the base layer, so a font-*
+   utility on a heading still wins. */
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-heading), var(--font-sans), sans-serif;
+  }
+}
+
+/* Below md the sidebar is a drawer, so the page is one layer: the panel. */
+@media (width < 48rem) {
+  :root,
+  .dark {
+    --color-fd-background: var(--panel);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Layout
+
+   From md up the page never scrolls. The sidebar sits on the surface, and
+   #docs-panel (components/docs-panel.tsx) fills the main and
+   table-of-contents columns of Fumadocs' layout grid at a fixed height. The
+   panel itself doesn't scroll: #docs-topbar is laid over #docs-scroll, which
+   does, so the page and its scrollbar slide under the topbar. #docs-scroll
+   is a grid reusing Fumadocs' area names, so the article and table of
+   contents land where they would in the stock layout, and Fumadocs' sticky
+   offsets are redefined against it: row 1 is the topbar.
+
+   Below md the panel and scroller are `display: contents`, so their
+   children fall back into the stock layout, and the topbar is hidden.
+   --------------------------------------------------------------------------- */
+#docs-panel,
+#docs-scroll {
+  display: contents;
+}
+
+#docs-topbar {
+  display: none;
+}
+
+@media (width >= 48rem) {
+  /* The shell is the screen: it never scrolls or bounces. The sidebar and
+     the panel are the only scroll containers. */
+  html,
+  body {
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  #nd-docs-layout {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  #nd-sidebar:not([data-collapsed='true']) {
+    background-color: transparent;
+    border-color: transparent;
+  }
+
+  /* GitHub and the theme switch move to the topbar. */
+  #nd-sidebar > div:last-child:not(:first-child) {
+    display: none;
+  }
+
+  #docs-panel {
+    --topbar-height: 2.5rem;
+    --fd-docs-height: calc(100dvh - 1.5rem);
+    --fd-docs-row-1: var(--topbar-height);
+    --fd-docs-row-2: var(--topbar-height);
+    --fd-docs-row-3: calc(var(--topbar-height) + var(--fd-toc-popover-height));
+
+    position: relative;
+    display: block;
+    grid-row: 1 / -1;
+    grid-column: 3 / -1;
+    height: var(--fd-docs-height);
+    /* The left margin keeps the glow off the sidebar. */
+    margin: 0.75rem;
+    overflow: hidden;
+    border-radius: 1rem;
+    /* The spectrum border from the main app's modals: a conic gradient
+       showing through a transparent border, under the panel's fill. */
+    border: 1px solid transparent;
+    background:
+      linear-gradient(var(--panel), var(--panel)) padding-box,
+      conic-gradient(
+          from 200deg,
+          hsl(217 91% 60% / 0.55),
+          hsl(268 85% 66% / 0.55),
+          hsl(328 85% 64% / 0.55),
+          hsl(38 92% 58% / 0.55),
+          hsl(174 78% 48% / 0.55),
+          hsl(217 91% 60% / 0.55)
+        )
+        border-box;
+    /* The aurora's four hues, one from each corner, held close to the
+       panel. */
+    box-shadow:
+      -6px -6px 32px -12px hsl(217 91% 60% / var(--glow-opacity)),
+      6px -6px 32px -12px hsl(268 85% 66% / var(--glow-opacity)),
+      6px 6px 32px -12px hsl(174 78% 48% / var(--glow-opacity)),
+      -6px 6px 32px -12px hsl(328 85% 64% / var(--glow-opacity));
+  }
+
+  /* Inset from the panel's edge, so the scrollbar runs inside the panel
+     rather than on its border. */
+  #docs-scroll {
+    /* The table of contents fills this height: the panel's, less its border
+       and the scroller's bottom inset. */
+    --fd-docs-height: calc(100dvh - 1.5rem - 2px - 0.25rem);
+
+    display: grid;
+    grid-template:
+      'toc-popover toc-popover' auto
+      'main toc' 1fr
+      / minmax(0, 1fr) var(--fd-toc-width);
+    position: absolute;
+    inset: 0 0.25rem 0.25rem 0;
+    padding-top: var(--topbar-height);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-padding-top: calc(var(--topbar-height) + 1rem);
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--fg) 14%, transparent) transparent;
+  }
+
+  /* The scroller's padding already clears the topbar. */
+  #docs-scroll [data-layout-content] {
+    padding-top: 1.5rem;
+  }
+
+  #docs-scroll #nd-toc {
+    padding-top: 1.5rem;
+  }
+
+  /* Solid down to its middle, then fading to nothing at its bottom edge,
+     so the page tapers off as it slides underneath. It covers the top of
+     the scrollbar too. */
+  #docs-topbar {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    height: var(--topbar-height);
+    padding-inline: 1.5rem 0.75rem;
+    background: linear-gradient(to bottom, var(--panel) 50%, transparent);
+  }
+}
+
+/* Only the phone layout scrolls the page. */
+@media (width < 48rem) {
+  html {
+    scrollbar-gutter: stable;
+  }
+}
+
+/* Opening a dialog locks scrolling; keep the page from shifting sideways. */
 html > body[data-scroll-locked] {
   margin-right: 0px !important;
   --removed-body-scroll-bar-size: 0px !important;
