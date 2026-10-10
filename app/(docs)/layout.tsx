@@ -42,7 +42,7 @@ export default function Layout({ children }: LayoutProps<"/">) {
 //
 // - Each section's index page (User Guide's, the API Reference Overview)
 //   sits outside the section's children, so the sidebar would skip it. It
-//   goes first in the list instead.
+//   goes first in the list instead, or just after a leading separator.
 // - Names truncate on one line. Sidebar items lay a name out as bare text in
 //   a flex row, which wraps but never ends in "...", so it goes in a span.
 // - Reference pages lead with their method in a bordered badge.
@@ -58,7 +58,11 @@ function sidebarNode(node: PageTree.Node): PageTree.Node {
   if (node.type === "page") return { ...node, name: itemName(node) };
 
   const children = node.children.map(sidebarNode);
-  if (node.root && node.index) children.unshift(sidebarNode(node.index));
+  if (node.root && node.index) {
+    // After a leading separator, so the guide's index sits under its heading.
+    const at = children[0]?.type === "separator" ? 1 : 0;
+    children.splice(at, 0, sidebarNode(node.index));
+  }
   return {
     ...node,
     name: (

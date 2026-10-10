@@ -1,5 +1,20 @@
 {
   "title": "User Guide",
   "root": true,
-  "pages": ["index"]
+  "pages": [
+    "---Get started---",
+    "index",
+    "...quickstart",
+    "concepts",
+    "---Publish services---",
+    "...publish",
+    "---Use services---",
+    "...use",
+    "---Earnings and payouts---",
+    "...earnings",
+    "---CLI---",
+    "...cli",
+    "---SDKs---",
+    "...sdks"
+  ]
 }
