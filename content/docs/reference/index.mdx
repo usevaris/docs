@@ -1,0 +1,20 @@
+---
+title: API Reference
+description: Every endpoint of the Varis API, generated from its OpenAPI description.
+---
+
+Every endpoint lives under `https://api.usevaris.com`.
+
+## Credentials
+
+Two kinds of credential reach the API, both in the `Authorization: Bearer`
+header:
+
+- An **agent key**, prefixed `var_ak_`, invokes services and spends against
+  its owner's balance.
+- A **device token**, prefixed `var_dt_`, identifies a developer signed in
+  with `varis login`. Sent with `X-Varis-Owner-Identifier`, it publishes and
+  updates that owner's services. It never invokes and never spends.
+
+If you send the wrong kind of credential, the API answers `403`, not `401`:
+the credential is valid, but it isn't permitted for that operation.

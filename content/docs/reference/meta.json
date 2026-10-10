@@ -1,0 +1,6 @@
+{
+  "title": "API Reference",
+  "description": "Every endpoint on api.usevaris.com.",
+  "root": true,
+  "pages": ["index", "..."]
+}
