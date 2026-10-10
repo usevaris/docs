@@ -79,15 +79,23 @@
    semi-bold as well as tinted.
    --------------------------------------------------------------------------- */
 #nd-sidebar {
-  --color-fd-muted-foreground: color-mix(in srgb, var(--fg) 78%, var(--surface));
-}
-
-.dark #nd-sidebar {
-  --color-fd-muted-foreground: color-mix(in srgb, var(--fg) 80%, var(--surface));
+  --color-fd-muted-foreground: color-mix(in srgb, var(--fg) 90%, var(--surface));
 }
 
 #nd-sidebar [data-active='true'] {
   font-weight: 600;
+}
+
+/* Section headings (meta.json separators, drawn as a p) sit at the items'
+   left edge, outdented from their names, in small dimmed capitals.
+   Fumadocs pads them with an inline style, hence !important. */
+#nd-sidebar p {
+  padding-inline-start: 0 !important;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--fg) 60%, var(--surface));
 }
 
 /* ---------------------------------------------------------------------------
