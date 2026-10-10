@@ -71,6 +71,26 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Sidebar text
+
+   Fumadocs draws inactive items in its muted grey, which reads faint,
+   most of all in light mode. Inside the sidebar that grey is darkened, so
+   hover and the other states built on it still work. The current page is
+   semi-bold as well as tinted.
+   --------------------------------------------------------------------------- */
+#nd-sidebar {
+  --color-fd-muted-foreground: color-mix(in srgb, var(--fg) 78%, var(--surface));
+}
+
+.dark #nd-sidebar {
+  --color-fd-muted-foreground: color-mix(in srgb, var(--fg) 80%, var(--surface));
+}
+
+#nd-sidebar [data-active='true'] {
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
    Section switcher aurora
 
    The main app's card aurora: a soft, slowly drifting wash of its four hues
