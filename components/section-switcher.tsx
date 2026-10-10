@@ -50,7 +50,10 @@ export function SectionSwitcher({ sections }: { sections: Section[] }) {
   return (
     <div
       ref={ref}
-      className="rounded-lg border border-(--line-strong) bg-fd-secondary/50 p-0.5 text-sm"
+      // Open, it takes the main app's spectrum border.
+      className={`rounded-lg border bg-fd-secondary/50 p-0.5 text-sm ${
+        open ? 'spectrum-border border-transparent' : 'border-(--line-strong)'
+      }`}
     >
       <button
         type="button"

@@ -276,17 +276,18 @@ function Field({
 /**
  * "Available options:" and the values. Past 12, the list shows its first
  * two lines, the second fading out from its top, with "Show all" over the
- * fade.
+ * fade; once open, "Show less" closes it again.
  */
 function Options({ values }: { values: unknown[] }) {
   const [all, setAll] = useState(false);
-  const long = values.length > 12 && !all;
+  const long = values.length > 12;
+  const clipped = long && !all;
 
   return (
     <div className="relative mt-3">
       <p
-        className={`text-[0.875rem] leading-8 text-fd-muted-foreground ${long ? 'max-h-16 overflow-hidden' : ''}`}
-        style={long ? { maskImage: 'linear-gradient(to bottom, #000 2rem, transparent 4rem)' } : undefined}
+        className={`text-[0.875rem] leading-8 text-fd-muted-foreground ${clipped ? 'max-h-16 overflow-hidden' : ''}`}
+        style={clipped ? { maskImage: 'linear-gradient(to bottom, #000 2rem, transparent 4rem)' } : undefined}
       >
         Available options:{' '}
         {values.map((v, i) => (
@@ -297,14 +298,17 @@ function Options({ values }: { values: unknown[] }) {
         ))}
       </p>
       {long && (
-        <button
-          type="button"
-          onClick={() => setAll(true)}
-          className="absolute end-0 bottom-0 inline-flex items-center gap-1 text-[0.8125rem] text-fd-muted-foreground transition-colors hover:text-fd-foreground"
-        >
-          Show all
-          <ChevronDown className="size-3.5" />
-        </button>
+        <div className={clipped ? 'absolute end-0 bottom-0' : 'mt-2 flex justify-end'}>
+          <button
+            type="button"
+            aria-expanded={all}
+            onClick={() => setAll((a) => !a)}
+            className="inline-flex items-center gap-1 rounded-md border bg-fd-secondary px-1.5 py-0.5 text-xs text-fd-secondary-foreground transition-colors hover:bg-fd-accent"
+          >
+            {all ? 'Show less' : 'Show all'}
+            <ChevronDown className={`size-3.5 transition-transform ${all ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
       )}
     </div>
   );
