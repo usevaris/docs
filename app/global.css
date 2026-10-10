@@ -98,7 +98,12 @@
     overscroll-behavior: none;
   }
 
+  /* Two columns: the sidebar and the panel. Fumadocs sets its own template
+     inline, with gutters and a capped width, hence !important. Collapsing
+     the sidebar animates --fd-sidebar-col to 0, so the panel takes the
+     whole width. */
   #nd-docs-layout {
+    grid-template: 'sidebar panel' 1fr / var(--fd-sidebar-col) minmax(0, 1fr) !important;
     height: 100dvh;
     overflow: hidden;
   }
@@ -108,22 +113,38 @@
     border-color: transparent;
   }
 
+  /* A collapsed sidebar leaves completely: no peek on hover, and no
+     floating button. Its toggle moves into the topbar. */
+  #nd-docs-layout[data-sidebar-collapsed='true'] [data-sidebar-placeholder],
+  [data-sidebar-panel] {
+    display: none;
+  }
+
+  #docs-sidebar-toggle {
+    display: none;
+  }
+
+  #nd-docs-layout[data-sidebar-collapsed='true'] #docs-sidebar-toggle {
+    display: inline-flex;
+  }
+
   /* GitHub and the theme switch move to the topbar. */
   #nd-sidebar > div:last-child:not(:first-child) {
     display: none;
   }
 
   #docs-panel {
-    --topbar-height: 2.5rem;
+    /* The topbar is a solid row for its controls, then a fade below it. */
+    --topbar-row: 2.75rem;
+    --topbar-fade: 2rem;
     --fd-docs-height: calc(100dvh - 1.5rem);
-    --fd-docs-row-1: var(--topbar-height);
-    --fd-docs-row-2: var(--topbar-height);
-    --fd-docs-row-3: calc(var(--topbar-height) + var(--fd-toc-popover-height));
+    --fd-docs-row-1: var(--topbar-row);
+    --fd-docs-row-2: var(--topbar-row);
+    --fd-docs-row-3: calc(var(--topbar-row) + var(--fd-toc-popover-height));
 
     position: relative;
     display: block;
-    grid-row: 1 / -1;
-    grid-column: 3 / -1;
+    grid-area: panel;
     height: var(--fd-docs-height);
     /* The left margin keeps the glow off the sidebar. */
     margin: 0.75rem;
@@ -167,36 +188,50 @@
       / minmax(0, 1fr) var(--fd-toc-width);
     position: absolute;
     inset: 0 0.25rem 0.25rem 0;
-    padding-top: var(--topbar-height);
+    padding-top: var(--topbar-row);
     overflow-y: auto;
     overscroll-behavior: contain;
-    scroll-padding-top: calc(var(--topbar-height) + 1rem);
+    scroll-padding-top: calc(var(--topbar-row) + var(--topbar-fade));
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--fg) 14%, transparent) transparent;
   }
 
-  /* The scroller's padding already clears the topbar. */
-  #docs-scroll [data-layout-content] {
-    padding-top: 1.5rem;
-  }
-
+  /* The scroller's padding clears the solid row; this clears the fade, so
+     nothing sits in it until the page scrolls. */
+  #docs-scroll [data-layout-content],
   #docs-scroll #nd-toc {
-    padding-top: 1.5rem;
+    padding-top: calc(var(--topbar-fade) + 0.25rem);
   }
 
-  /* Solid down to its middle, then fading to nothing at its bottom edge,
-     so the page tapers off as it slides underneath. It covers the top of
-     the scrollbar too. */
+  /* The controls sit in the solid top row. Below it the bar fades to
+     nothing on an eased curve, so the page tapers off smoothly as it slides
+     underneath. It covers the top of the scrollbar too. */
   #docs-topbar {
     position: absolute;
     inset: 0 0 auto;
     z-index: 20;
     display: flex;
     align-items: center;
-    gap: 1rem;
-    height: var(--topbar-height);
-    padding-inline: 1.5rem 0.75rem;
-    background: linear-gradient(to bottom, var(--panel) 50%, transparent);
+    gap: 0.75rem;
+    height: calc(var(--topbar-row) + var(--topbar-fade));
+    padding: 0 0.75rem var(--topbar-fade) 1.25rem;
+    background: linear-gradient(
+      to bottom,
+      var(--panel) var(--topbar-row),
+      color-mix(in srgb, var(--panel) 82%, transparent)
+        calc(var(--topbar-row) + var(--topbar-fade) * 0.25),
+      color-mix(in srgb, var(--panel) 50%, transparent)
+        calc(var(--topbar-row) + var(--topbar-fade) * 0.5),
+      color-mix(in srgb, var(--panel) 18%, transparent)
+        calc(var(--topbar-row) + var(--topbar-fade) * 0.75),
+      transparent
+    );
+    /* Only the controls take clicks; the fade lets them through. */
+    pointer-events: none;
+  }
+
+  #docs-topbar > * {
+    pointer-events: auto;
   }
 }
 

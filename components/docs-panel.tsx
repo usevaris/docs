@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react';
+import { PanelLeftOpen } from 'lucide-react';
+import { SidebarCollapseTrigger } from 'fumadocs-ui/components/sidebar/base';
 import { Breadcrumb } from 'fumadocs-ui/layouts/docs/page/slots/breadcrumb';
 import { ThemeSwitch } from 'fumadocs-ui/layouts/shared/slots/theme-switch';
 import { githubUrl } from '@/lib/shared';
 
 /**
  * The raised panel that holds a page, beside the sidebar: a fixed height, with
- * a topbar (the breadcrumb, GitHub, and the theme switch) laid over
+ * a topbar (the sidebar toggle while the sidebar is collapsed, the
+ * breadcrumb, GitHub, and the theme switch) laid over
  * #docs-scroll, where the page scrolls and slides under the topbar.
  * global.css lays it out and draws it. Below md it dissolves into Fumadocs'
  * own layout, which has its own header.
@@ -14,6 +17,14 @@ export function DocsPanel({ children }: { children: ReactNode }) {
   return (
     <div id="docs-panel">
       <header id="docs-topbar">
+        {/* Shown only while the sidebar is collapsed; see global.css. */}
+        <SidebarCollapseTrigger
+          id="docs-sidebar-toggle"
+          aria-label="Show sidebar"
+          className="size-6 items-center justify-center rounded-md text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
+        >
+          <PanelLeftOpen className="size-3.5" />
+        </SidebarCollapseTrigger>
         <Breadcrumb includePage className="min-w-0" />
         <div className="ms-auto flex items-center gap-1.5">
           <a
