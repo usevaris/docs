@@ -26,13 +26,19 @@ export default async function Page(props: PageProps<'/[[...slug]]'>) {
   const breadcrumb = { className: 'md:hidden' };
   const footer = { component: <PageFooter {...findNeighbour(source.getPageTree(), page.url)} /> };
 
-  // API reference pages come from openapi.yaml, not from MDX files.
+  // API reference pages come from openapi.yaml, not from MDX files. The
+  // operation layout in components/api-page.tsx carries the title, and its
+  // examples take the place of the table of contents.
   if (page.type === 'openapi') {
     return (
       <DocsPanel>
-        <DocsPage toc={page.data.toc} breadcrumb={breadcrumb} footer={footer} full>
-          <DocsTitle>{page.data.title}</DocsTitle>
-          <DocsDescription>{page.data.description}</DocsDescription>
+        <DocsPage
+          breadcrumb={breadcrumb}
+          footer={footer}
+          tableOfContent={{ enabled: false }}
+          tableOfContentPopover={{ enabled: false }}
+          full
+        >
           <DocsBody>
             <OpenAPIPage {...page.data.getOpenAPIPageProps()} />
           </DocsBody>

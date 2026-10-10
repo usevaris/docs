@@ -10,7 +10,7 @@ export function PageFooter({ previous, next }: { previous?: PageTree.Item; next?
   if (!previous && !next) return null;
 
   return (
-    <nav aria-label="More pages" className="not-prose mt-10 grid grid-cols-2 gap-4">
+    <nav aria-label="More pages" className="not-prose mt-10 grid max-w-[560px] grid-cols-2 gap-4">
       {previous ? (
         <Link href={previous.url} className={card}>
           <ArrowLeft className={arrow} />
