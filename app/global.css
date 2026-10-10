@@ -305,10 +305,6 @@
    and open space between. Reference pages are `full`: their operation
    layout (components/api-page.tsx) sets its own columns.
    --------------------------------------------------------------------------- */
-[data-layout-main] {
-  justify-items: start;
-}
-
 [data-layout-content] {
   max-width: calc(560px + 2rem);
 }
@@ -318,6 +314,11 @@
 }
 
 @media (width >= 48rem) {
+  /* Text to the left; on phones the column is centred instead. */
+  [data-layout-main] {
+    justify-items: start;
+  }
+
   #docs-scroll {
     padding-inline: max(0px, calc((100% - 72rem) / 2));
   }
@@ -339,10 +340,36 @@
   display: none;
 }
 
-/* Only the phone layout scrolls the page. */
+/* ---------------------------------------------------------------------------
+   Phones
+
+   Fumadocs' own layout, with the page scrolling. Its header bar matches the
+   panel's topbar: solid, with no rule, and a fade below it that the page
+   tapers into as it scrolls underneath.
+   --------------------------------------------------------------------------- */
 @media (width < 48rem) {
   html {
     scrollbar-gutter: stable;
+  }
+
+  #nd-subnav {
+    border-bottom-width: 0;
+    background: var(--panel);
+    backdrop-filter: none;
+  }
+
+  #nd-subnav::after {
+    content: '';
+    position: absolute;
+    inset: 100% 0 auto;
+    height: 1.5rem;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      var(--panel),
+      color-mix(in srgb, var(--panel) 50%, transparent) 50%,
+      transparent
+    );
   }
 }
 

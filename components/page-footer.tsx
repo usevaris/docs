@@ -10,14 +10,15 @@ export function PageFooter({ previous, next }: { previous?: PageTree.Item; next?
   if (!previous && !next) return null;
 
   return (
-    <nav aria-label="More pages" className="not-prose mt-10 grid max-w-[560px] grid-cols-2 gap-4">
+    <nav aria-label="More pages" className="not-prose mt-10 grid max-w-[560px] gap-4 sm:grid-cols-2">
       {previous ? (
         <Link href={previous.url} className={card}>
           <ArrowLeft className={arrow} />
           {previous.name}
         </Link>
       ) : (
-        <div />
+        // Holds the left column on wide screens; stacked, it would be a gap.
+        <div className="max-sm:hidden" />
       )}
       {next && (
         <Link href={next.url} className={`${card} justify-end text-end`}>

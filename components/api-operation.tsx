@@ -195,7 +195,7 @@ function Responses({ operation }: { operation: Operation }) {
 function Section({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
   return (
     <section className="mt-12">
-      <div className="mb-2 flex items-baseline justify-between gap-4 border-b pb-3">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-b pb-3">
         <h2 className="text-xl font-semibold">{title}</h2>
         {typeof aside === 'string' ? <Pill>{aside}</Pill> : aside}
       </div>
@@ -275,8 +275,8 @@ function Field({
 
 /**
  * "Available options:" and the values. Past 12, the list shows its first
- * two lines, the second fading out from its top, with "Show all" over the
- * fade; once open, "Show less" closes it again.
+ * two lines, the second fading out from its top, with "Show all" below
+ * the fade; once open, "Show less" closes it again.
  */
 function Options({ values }: { values: unknown[] }) {
   const [all, setAll] = useState(false);
@@ -284,7 +284,7 @@ function Options({ values }: { values: unknown[] }) {
   const clipped = long && !all;
 
   return (
-    <div className="relative mt-3">
+    <div className="mt-3">
       <p
         className={`text-[0.875rem] leading-8 text-fd-muted-foreground ${clipped ? 'max-h-16 overflow-hidden' : ''}`}
         style={clipped ? { maskImage: 'linear-gradient(to bottom, #000 2rem, transparent 4rem)' } : undefined}
@@ -298,7 +298,7 @@ function Options({ values }: { values: unknown[] }) {
         ))}
       </p>
       {long && (
-        <div className={clipped ? 'absolute end-0 bottom-0' : 'mt-2 flex justify-end'}>
+        <div className="mt-2 flex justify-end">
           <button
             type="button"
             aria-expanded={all}
