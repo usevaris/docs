@@ -22,7 +22,7 @@ export function DocsPanel({ children }: { children: ReactNode }) {
           <PanelLeft className="size-4.5" />
         </SidebarCollapseTrigger>
         <Breadcrumb includePage className="min-w-0" />
-        <div className="ms-auto flex items-center gap-3">
+        <div className="ms-auto flex items-center gap-4">
           <FullSearchTrigger hideIfDisabled className="w-52 py-1 text-[0.8125rem]" />
           <a href={githubUrl} aria-label="GitHub" className={iconButton}>
             <GitHubIcon />

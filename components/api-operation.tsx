@@ -104,29 +104,48 @@ function Endpoint({ method, path }: { method: string; path: string }) {
 
 /**
  * The operation's credentials as parameters. Each security requirement is
- * one way to authenticate, and its schemes go together; with a single way,
- * every one of them is required.
+ * one way to authenticate, and its schemes go together. Schemes sent in the
+ * same header (an agent key or a device token, both `Authorization`) share
+ * one row, describing each. A credential is required when every way sends
+ * it.
  */
 function credentials(op: Operation, spec: Spec, r: Resolve): Parameter[] {
   const requirements = op.security ?? spec.security ?? [];
-  const names = [...new Set(requirements.flatMap((req) => Object.keys(req)))];
+  const rows = new Map<string, Parameter & { ways: number; notes: string[] }>();
 
-  return names.flatMap((name): Parameter[] => {
-    const scheme = r(spec.components?.securitySchemes?.[name]) as SecurityScheme | undefined;
-    if (!scheme) return [];
-    const bearer = scheme.type === 'http' && scheme.scheme === 'bearer';
-    const location = bearer ? 'header' : scheme.in;
-    if (location !== 'header' && location !== 'query') return [];
-    return [
-      {
-        name: bearer ? 'Authorization' : (scheme.name ?? name),
+  for (const requirement of requirements) {
+    const seen = new Set<string>();
+    for (const name of Object.keys(requirement)) {
+      const scheme = r(spec.components?.securitySchemes?.[name]) as SecurityScheme | undefined;
+      if (!scheme) continue;
+      const bearer = scheme.type === 'http' && scheme.scheme === 'bearer';
+      const location = bearer ? 'header' : scheme.in;
+      if (location !== 'header' && location !== 'query') continue;
+      const header = bearer ? 'Authorization' : (scheme.name ?? name);
+
+      const row = rows.get(header) ?? {
+        name: header,
         in: location,
         type: bearer ? 'Bearer <token>' : 'string',
-        required: requirements.length === 1,
-        description: scheme.description,
-      },
-    ];
-  });
+        ways: 0,
+        notes: [],
+      };
+      if (!seen.has(header)) row.ways += 1;
+      seen.add(header);
+      if (scheme.description && !row.notes.includes(scheme.description.trim())) {
+        row.notes.push(scheme.description.trim());
+      }
+      rows.set(header, row);
+    }
+  }
+
+  return [...rows.values()].map(({ ways, notes, ...row }) => ({
+    ...row,
+    required: ways === requirements.length,
+    description: notes
+      .map((note, i) => (i === 0 ? note : `Or ${note.charAt(0).toLowerCase()}${note.slice(1)}`))
+      .join('\n\n'),
+  }));
 }
 
 function Responses({ operation }: { operation: Operation }) {
@@ -180,7 +199,8 @@ function Section({ title, aside, children }: { title: string; aside?: ReactNode;
         <h2 className="text-xl font-semibold">{title}</h2>
         {typeof aside === 'string' ? <Pill>{aside}</Pill> : aside}
       </div>
-      {children}
+      {/* Its own box, so the first row's top rule drops under the heading's. */}
+      <div>{children}</div>
     </section>
   );
 }
