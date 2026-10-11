@@ -1,6 +1,123 @@
 ---
 title: Headless agents
-description: Give an agent that runs without a person an agent key.
+description: Create an agent key for a script, backend service, or your own agent, and use it to call services through the Varis API or MCP server.
 ---
 
-{/* Covers: Agent keys. */}
+A headless agent is anything that calls Varis without a person signing in: a script, a backend service, a scheduled job, or an agent you build yourself. 
+
+A headless agent authenticates with an **agent key**, which you create in the dashboard.
+
+If you use an AI assistant such as Claude or ChatGPT, connect it with OAuth instead. For more information, see [Connect an AI assistant](/use/connect-an-assistant).
+
+## Create an agent
+
+1. In the [dashboard](https://usevaris.com/agents), go to **Agents**.
+1. Click **Create agent**.
+1. Enter a **Name** that tells you what the agent is, such as `Pricing bot`.
+1. Under **Limits**, set **Per request** and **Per day**. For more information, see [Spend limits](/use/spend-limits).
+1. Click **Create agent**.
+1. Copy the agent key, and store it somewhere safe, such as your secret manager.
+
+Varis shows the agent key only once. If you lose it, create a new agent.
+
+If you leave both limits empty, Varis asks you to confirm. 
+
+<Callout type="warn">
+An agent with no limits can spend your whole balance on one call.
+</Callout>
+
+## Keep your agent key safe
+
+An agent key starts with `var_ak_`. Anyone who has it can spend your balance, within the agent's limits.
+
+- Store it in an environment variable or a secret manager, not in your code.
+- Use one agent per script or service, so that you can revoke one without affecting the others.
+- If a key leaks, revoke its agent straight away.
+
+## Use your agent key
+
+Send the agent key in the `Authorization` header of every request:
+
+```ts
+{
+  "Authorization": `Bearer ${AGENT_KEY}`
+  }
+```
+
+Replace `AGENT_KEY` with your agent key.
+
+You can call Varis in two ways with the same key.
+
+<Tabs items={['HTTP API', 'MCP']}>
+<Tab value="HTTP API">
+
+Search for a service:
+
+```bash
+curl "https://api.usevaris.com/v1/services?q=currency" \
+  -H "Authorization: Bearer $VARIS_AGENT_KEY"
+```
+
+Call it:
+
+```bash
+curl https://api.usevaris.com/v1/invoke \
+  -H "Authorization: Bearer $VARIS_AGENT_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service_id": "SERVICE_ID",
+    "input": { "from": "USD", "to": "EUR", "amount": 100 }
+  }'
+```
+
+For search filters, retries, and errors, see [Discover and invoke services](/use/invoke).
+
+</Tab>
+<Tab value="MCP">
+
+Use this if your agent is built on an MCP client that lets you set headers. Point it at the Varis MCP server, and send the agent key as a header:
+
+```json
+{
+  "mcpServers": {
+    "varis": {
+      "url": "https://api.usevaris.com/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer AGENT_KEY"
+      }
+    }
+  }
+}
+```
+
+The exact format depends on your client. In Claude Code, run:
+
+```bash
+claude mcp add --transport http varis https://api.usevaris.com/v1/mcp \
+  --header "Authorization: Bearer AGENT_KEY"
+```
+
+Your agent gets two tools: `search_services` and `invoke_service`.
+
+</Tab>
+</Tabs>
+
+## Manage an agent
+
+To manage an agent, go to **Agents**, and then open the agent's menu.
+
+- **Update limits:** change the agent's **Per request** and **Per day** limits.
+- **Update categories:** let the agent call services in **All categories** or only in **Specific categories**.
+- **Revoke:** turn the agent off. Its key stops working immediately, and you can't turn it back on.
+
+Click an agent to see every call it made and what each one cost.
+
+## Limits on requests
+
+Each agent can make 120 calls a minute to `POST /v1/invoke`, and 300 requests a minute to the MCP server. Past that, Varis returns `429` with a `Retry-After` header. Wait that many seconds, and then retry with the same idempotency key. A limited call costs nothing.
+
+## What's next
+
+- [Discover and invoke services](/use/invoke).
+- [Spend limits](/use/spend-limits).
