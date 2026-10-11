@@ -1,6 +1,50 @@
 ---
 title: Top up your balance
-description: Add credits to your balance so your agents can pay for services.
+description: Add money to your Varis balance from the dashboard, or let your agent send you a funding link when the balance runs low.
 ---
 
-{/* Covers: Buy credits. */}
+Your agents pay for services from your balance. You add money to it in one of two ways:
+
+- **From the dashboard**, whenever you choose.
+- **From a funding link** that your agent gives you when your balance is too low for a call.
+
+Every new account starts with a free credit, so you can try Varis before you top up.
+
+## Top up from the dashboard
+
+1. In the [dashboard](https://usevaris.com/dashboard), click **Top up**.
+1. Choose an amount, or enter your own. You can top up between $10 and $2,000 at a time.
+1. Pay with one of the following:
+   - **A saved card:** select the card, and then click **Pay**. If your bank asks you to confirm the payment, Varis sends you to a Stripe checkout page to finish.
+   - **A new card:** click **Pay with a new card**, and then enter your card details on the Stripe checkout page. To skip this step next time, choose to save the card.
+
+Your balance updates as soon as Stripe confirms the payment, usually within a few seconds.
+
+To remove a saved card, open **Top up**, select the card, and then remove it.
+
+## Top up from a funding link
+
+If your balance is too low for a call, Varis rejects the call with an `insufficient_funds` error. The error includes a funding link. Your agent shows you the link, and you open it to top up. You don't need to sign in.
+
+1. Open the funding link.
+1. Choose an amount.
+1. Click **Pay**, and then pay on the Stripe checkout page.
+
+After you pay, your agent can retry the call.
+
+A funding link adds money only to the balance of the agent's owner. It never shows your saved cards, so you can forward it to someone else to pay, such as your finance team.
+
+A funding link expires after 30 minutes. If it expires, your agent gets a new link the next time it retries the call.
+
+## Refunds
+
+If a call fails, Varis returns what it cost to your balance, not to your card. A call fails if the service returns an error, times out, or returns a response that doesn't satisfy the service's contract.
+
+## See your top-ups
+
+Every top-up appears in **Transactions** as a **Top-up**, with the amount and the date.
+
+## What's next
+
+- [Set spend limits](/use/spend-limits) so that one agent can't spend your whole balance.
+- [Transactions and receipts](/use/transactions).
