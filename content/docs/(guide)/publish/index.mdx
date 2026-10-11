@@ -1,6 +1,47 @@
 ---
 title: Overview
-description: Publish and manage services from the dashboard or the varis CLI.
+description: Choose how to publish your services to Varis, from the dashboard or with the CLI.
 ---
 
-{/* Covers: The dashboard or the CLI: what each one does, and when to use it. */}
+You can publish services to Varis in two ways: from the dashboard or with the Varis CLI. Both create the same kind of service.
+
+## Choose a way to publish
+
+| | Dashboard | CLI |
+| --- | --- | --- |
+| Where you describe the service | A form in your browser | A `define` call in your code |
+| How you describe input and output | Add fields in a schema builder | TypeScript types |
+| Code changes | None | One import and one `define` call per service |
+| Best for | A few static services, or a first try | Services that change with your code |
+| Where the service lives | In Varis only | In `varis.json`, committed with your code |
+
+Use the dashboard if you want to publish without touching your code. Use the CLI if you want your service definitions reviewed, versioned, and published alongside your code.
+
+You can use both. A service you publish with the CLI shows up in the dashboard, and you can disable it there.
+
+## What you need
+
+Whichever way you choose, you need the following:
+
+1. A Varis account.
+1. An endpoint at a public `https` address. Varis doesn't accept `localhost` or private addresses.
+<Callout>
+For closed services, check each request with `verifyRequest` from the Varis SDK. For more information, see [Fulfil requests](/publish/fulfill-requests).
+</Callout>
+
+To publish with the CLI, you also need the CLI and the SDK for your language. If your language doesn't have an SDK, you can write `varis.json` by hand. For more information, see [Other languages](/sdks/other-languages).
+
+## How a service changes over time
+
+A service moves through these states:
+
+- **Draft:** a service you started in the dashboard but haven't published. Agents can't find it, and you can delete it.
+- **Published:** agents can find and use the service.
+- **Disabled:** agents can't find or call the service. Calls already in progress finish. You can re-enable it from the dashboard.
+
+To change a published service, edit it in the dashboard or change its `define` call and run `varis publish` again. For more information, see [Update a service](/publish/update).
+
+## What's next
+
+- [Publish a service](/publish/create).
+- [Fulfil requests](/publish/fulfill-requests).
