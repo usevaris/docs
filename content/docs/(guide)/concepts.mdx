@@ -1,6 +1,122 @@
 ---
-title: Concepts
-description: Users, owners, services, agents, and credits, and how they fit together.
+title: Core Concepts
+description: Learn the terms used throughout the Varis docs, from owners and services to holds, earnings, and payouts.
 ---
 
-{/* Covers: Users, owners, services, agents, credits. */}
+This page explains the terms you meet in the dashboard, the CLI, and the API. Each section tells you what the term means for you.
+
+## Owners and users
+
+You sign in to Varis as a **user**. Your user is you, the person.
+
+Everything else belongs to an **owner**: your balance, your services, your agents, and your earnings. An owner is the organisation that holds the money. When you sign up, Varis creates a personal owner for you, and you can rename it, for example to your company's name.
+
+When you publish a service, Varis records two things: the owner that the service belongs to, and you, the user who published it.
+
+## Services
+
+A **service** is an API endpoint that you publish to Varis. Each service has the following:
+
+- A **slug**, such as `convert-currency`, that is unique within your owner. Publishing the same slug again updates the service.
+- An **endpoint URL** where Varis sends requests. It must be a public `https` address.
+- A **method**, either `GET` or `POST`.
+- An **input schema** and an **output schema**, written as JSON Schema, that describe what your service takes and returns.
+- A **price** in US cents per request. A service with a price of `0` is free.
+- A **type** and one or more **categories** that help agents find it.
+
+You run your service on your own server. Varis never runs your code.
+
+## Agents
+
+An **agent** is anything that calls services through Varis: an AI assistant such as Claude or ChatGPT, or your own script or backend.
+
+Each agent belongs to an owner and spends from that owner's balance. Each agent has its own name, spend limits, and transaction history. You can revoke an agent at any time, and it stops working immediately.
+
+## Credentials
+
+Varis uses three kinds of credentials. Each one does one job.
+
+| Credential | Who uses it | What it does |
+| --- | --- | --- |
+| CLI sign-in | You, on your machine | Publishes and updates services with the CLI. You get it when you run `varis login`. |
+| Agent key | A headless agent | Calls services through the API or the MCP server. You create a key in the dashboard. |
+| Connection | An AI assistant | Calls services through the MCP server. You approve it in your browser when you connect the assistant. |
+
+An agent key starts with `var_ak_`. Keep it secret, as you would a password. 
+
+A CLI sign-in can't call services. An agent key can't publish services.
+
+## Balance
+
+Your **balance** is the prepaid money that your agents spend on services. It belongs to your owner, and all of your agents share it.
+
+You add to your balance by topping up with a card. Every new account starts with a free balance, so you can try Varis before you pay.
+
+Refunds go back to your balance, not to your card.
+
+## Spend limits
+
+A **spend limit** caps how much one agent can spend. Each agent can have two limits:
+
+- **Per request:** the most the agent can pay for one call.
+- **Per day:** the most the agent can spend in one day.
+
+Limits apply to one agent. They don't divide your balance between agents. If an agent has no limits, it can spend your whole balance.
+
+## Calls
+
+A **call**, or invocation, is one request from an agent to one service. Agents always send calls to Varis. Varis validates and orchestrates the service's request and delivery.
+
+Every call goes through these steps:
+
+1. Varis checks the agent's credential, spend limits, and balance.
+1. Varis validates the input against the service's I/O contract.
+1. Varis places a **hold** on the balance for the price of the call.
+1. Varis sends a signed request to the endpoint.
+1. Varis validates the response against the service's I/O contract.
+1. If the response is valid, Varis **settles** the hold: the agent's owner pays, and the service's owner earns. Otherwise, Varis releases the hold and nobody pays.
+
+A call fails if the service returns an error, times out, redirects, or returns a response that doesn't match its I/O contract. A failed call costs nothing and pays nothing.
+
+### Idempotency keys
+
+An **idempotency key** is a unique value that an agent sends with a call. If a call times out and the agent retries it with the same key, Varis doesn't charge twice.
+
+### Signed requests
+
+Varis signs every request that it sends to an endpoint. Your service checks the signature with `verifyRequest` from the SDK, so that it responds only to Varis.
+
+A signed request comes from an agent, not from one of your own users. You decide what a Varis request can access.
+
+## Transactions
+
+A **transaction** is a record of money moving. You see transactions in the dashboard under **Transactions**. The main types are:
+
+- **Top-up:** money you add to your balance.
+- **Invocation:** what you paid for a call.
+- **Earning:** what you earned when an agent used your service.
+- **Reversal:** a correction that undoes another transaction exactly.
+- **Payout:** earnings leaving Varis for your bank account.
+
+Transactions are immutable.
+
+## Earnings and payouts
+
+Your **earnings** are what agents pay to call your services, minus [the fees](/earnings/fees-and-refunds).
+
+A **payout** sends your earnings to your bank account. To receive payouts, you set up a payout account through Stripe from the dashboard. 
+
+<Callout>
+Payout setup does not affect your earning. Earnings accummulate while you figure out payout.
+</Callout>
+
+## `varis.json`
+
+`varis.json` is the file that describes your services. The CLI creates it, the SDK generates its contents from your code, and `varis publish` sends it to Varis.
+
+You can commit `varis.json` to version control. It contains your owner's ID, which isn't a secret, and it never contains a credential.
+
+## What's next
+
+- [Publish your first service](/quickstart/publish).
+- [Connect an agent](/quickstart/agent).
