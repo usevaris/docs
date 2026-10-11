@@ -1,6 +1,143 @@
 ---
 title: Connect an AI assistant
-description: Connect an AI assistant to Varis through the MCP server and OAuth.
+description: Connect Claude, ChatGPT, Cursor, or another MCP client to Varis so that it can find and pay for services.
 ---
 
-{/* Covers: MCP and OAuth. */}
+Varis runs an MCP server that AI assistants connect to. When you connect an assistant, you sign in to Varis in your browser and set how much the assistant can spend. The assistant then finds services, calls them, and pays from your balance.
+
+## Before you begin
+
+- [Create a Varis account](https://usevaris.com/sign-up).
+- Use an assistant that supports remote MCP servers with OAuth, such as Claude, ChatGPT, Claude Code, Cursor, or Visual Studio Code.
+
+## Use the official connector if there is one
+
+If your assistant lists Varis in its own connector directory, connect from there. An official connector needs no URL, and it stays up to date.
+
+Otherwise, add Varis as a custom connector with this URL:
+
+```txt
+https://api.usevaris.com/v1/mcp
+```
+
+## Add Varis to your assistant
+
+<Tabs items={['Claude', 'ChatGPT', 'Claude Code', 'Cursor', 'VS Code', 'Other']}>
+<Tab value="Claude">
+
+Custom connectors are available on Claude Pro, Max, Team, and Enterprise plans.
+
+1. In Claude, open **Settings** and go to **Connectors**.
+1. Click **Add custom connector**.
+1. Enter `Varis` as the name and `https://api.usevaris.com/v1/mcp` as the URL.
+1. Click **Add**, and then click **Connect**.
+
+On Team and Enterprise plans, an owner adds the connector for the organisation. Each member then clicks **Connect** to sign in with their own Varis account.
+
+</Tab>
+<Tab value="ChatGPT">
+
+ChatGPT connects to custom MCP servers in developer mode. Its menus change often, so see [Developer mode and MCP apps in ChatGPT](https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt) for the current steps.
+
+1. Turn on developer mode in ChatGPT's settings.
+1. Create a connector with `https://api.usevaris.com/v1/mcp` as the URL and OAuth as the authentication method.
+1. When ChatGPT asks, sign in to Varis.
+
+</Tab>
+<Tab value="Claude Code">
+
+Run:
+
+```bash
+claude mcp add --transport http varis https://api.usevaris.com/v1/mcp
+```
+
+Then, in Claude Code, run `/mcp`, select **varis**, and sign in.
+
+</Tab>
+<Tab value="Cursor">
+
+Add Varis to `.cursor/mcp.json` in your project, or to `~/.cursor/mcp.json` for every project:
+
+```json
+{
+  "mcpServers": {
+    "varis": {
+      "url": "https://api.usevaris.com/v1/mcp"
+    }
+  }
+}
+```
+
+Cursor asks you to sign in the first time it uses Varis.
+
+</Tab>
+<Tab value="VS Code">
+
+Add Varis to `.vscode/mcp.json` in your project:
+
+```json
+{
+  "servers": {
+    "varis": {
+      "type": "http",
+      "url": "https://api.usevaris.com/v1/mcp"
+    }
+  }
+}
+```
+
+VS Code asks you to sign in the first time it uses Varis.
+
+</Tab>
+<Tab value="Other">
+
+Varis works with any client that supports remote MCP servers over Streamable HTTP with OAuth. Give your client this URL:
+
+```txt
+https://api.usevaris.com/v1/mcp
+```
+
+If your client doesn't support OAuth but lets you set headers, use an agent key instead. For more information, see [Headless agents](/use/agent-keys).
+
+</Tab>
+</Tabs>
+
+## Approve the connection
+
+When your assistant connects for the first time, Varis opens in your browser.
+
+1. Sign in to Varis.
+1. Set the spend limits for this assistant:
+   - **Per request:** the most it can pay for one call.
+   - **Per day:** the most it can spend in one day.
+1. Optional: Limit the assistant to certain categories of service.
+1. Click **Allow**.
+
+You can change these limits later. For more information, see [Spend limits](/use/spend-limits).
+
+## Use Varis in a chat
+
+Ask your assistant to do something that a service on Varis can do. For example:
+
+```txt
+Use Varis to convert 100 US dollars to euros.
+```
+
+If your balance is too low, the assistant shows you a funding link. Open it to top up, and then ask the assistant to try again. For more information, see [Top up your balance](/use/buy-credits).
+
+## Manage a connected assistant
+
+Each assistant you connect becomes its own agent, named after the assistant. If you connect both Claude and ChatGPT, you get two agents, each with its own limits and history.
+
+To see, change, or revoke a connected assistant, go to **Agents** in the [dashboard](https://usevaris.com/agents). When you revoke an assistant, it stops working immediately. To use it again, connect it again.
+
+## Troubleshoot
+
+- **The assistant can't connect:** check that the URL is exactly `https://api.usevaris.com/v1/mcp`. Varis doesn't support the older SSE transport.
+- **The assistant reports "too many requests":** each assistant can make 300 requests a minute to the MCP server. Wait a moment, and then try again.
+
+## What's next
+
+- [Spend limits](/use/spend-limits).
+- [Transactions and receipts](/use/transactions).
