@@ -3,7 +3,7 @@ title: Handle requests
 description: Learn what Varis sends to your endpoint, how to verify it, and what your endpoint must return to get paid.
 ---
 
-When an agent calls your service, Varis sends a signed request to your endpoint. Your endpoint checks the signature, does its work, and returns a response that matches your output schema. If it does, you earn. If it doesn't, the call fails and the agent isn't charged.
+When an agent calls your service, Varis sends a signed request to your endpoint. Your endpoint checks the signature, does its work, and returns a response that fulfils your I/O contract.
 
 ## What Varis sends
 
@@ -12,7 +12,11 @@ Varis sends one HTTP request to your endpoint URL, with the method you published
 - **`GET`:** the input arrives in the query string, such as `?from=USD&to=EUR&amount=100`. There's no body.
 - **`POST`:** the input arrives as a JSON body, with `Content-Type: application/json`.
 
-Varis validates the input against your input schema before it calls you, so your endpoint receives only well-formed input. For `GET`, numbers and booleans still arrive as strings, so parse them.
+Varis validates the input against your I/O contract before it engages your servers, so your endpoint receives only well-formed input. 
+
+<Callout>
+For `GET` services, numbers and booleans still arrive as strings, so parse them.
+</Callout>
 
 Every request carries these headers:
 
@@ -30,7 +34,7 @@ Call `verifyRequest` before you do any work. It returns `true` if the request co
 <Tabs items={['Next.js', 'Express']}>
 <Tab value="Next.js">
 
-```ts title="app/currency/convert/route.ts"
+```ts title="app/api/currency/convert/route.ts"
 import { Varis, VarisKeyFetchError } from "@usevaris/sdk";
 
 const varis = new Varis();
@@ -88,7 +92,11 @@ Follow these rules when you use `verifyRequest`:
 - **Return `503`, not `401`, if the keys can't load.** `verifyRequest` throws `VarisKeyFetchError` only when it can't fetch the signing keys. That's a temporary problem on your side, not a bad request.
 - **Keep your server clock in sync.** Varis rejects requests signed more than 300 seconds before or after your server's time.
 
-The signature covers the method, path, query string, and body, but not the host. A proxy that changes the host is fine. A proxy or middleware that rewrites the path or query, such as one that strips a prefix, breaks the signature.
+The signature covers the method, path, query string, and body, but not the host. A proxy that changes the host is fine. 
+
+<Callout type="warn">
+A proxy or middleware that rewrites the path or query, such as one that strips a prefix, breaks the signature.
+</Callout>
 
 ## Decide what a Varis request can access
 
@@ -101,9 +109,9 @@ Treat it as its own kind of caller. Don't let it fall through to logic that assu
 To complete the call, return the following:
 
 - A `2xx` status code.
-- A JSON body that matches your output schema.
+- A JSON body that matches your I/O contract.
 
-Varis checks your response against your output schema. If it matches, Varis passes the output to the agent, and you earn.
+Varis checks your response against your contract. If it matches, Varis passes the output to the agent, and you earn.
 
 The call fails, and the agent isn't charged, in any of these cases:
 
@@ -111,8 +119,12 @@ The call fails, and the agent isn't charged, in any of these cases:
 | --- | --- |
 | Non-`2xx` status code | Your endpoint returns `500` or `404`. |
 | Redirect | Your framework adds a trailing slash and returns `308`. Varis never follows redirects. |
-| Timeout | Your endpoint takes longer than 30 seconds. |
+| Timeout | Your endpoint takes longer than 30 seconds to respond. |
 | Output doesn't match | A required field is missing, a field has the wrong type, or the body is empty or HTML. |
+
+<Callout>
+If your service returns HTML, stringify it and pass it into a `json` response. E.g. `{html_response: "<html>...</html>"}`
+</Callout>
 
 To see why a call failed, open the service in **Services** and click the request. The **Failure reason** shows what went wrong.
 
