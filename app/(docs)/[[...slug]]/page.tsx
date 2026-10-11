@@ -8,7 +8,7 @@ import {
   ViewOptionsPopover,
 } from 'fumadocs-ui/layouts/docs/page';
 import { notFound } from 'next/navigation';
-import { getMDXComponents } from '@/components/mdx';
+import { getMDXComponents, Link } from '@/components/mdx';
 import { OpenAPIPage } from '@/components/api-page';
 import { DocsPanel } from '@/components/docs-panel';
 import { PageFooter } from '@/components/page-footer';
@@ -67,11 +67,11 @@ export default async function Page(props: PageProps<'/[[...slug]]'>) {
             githubUrl={`${githubUrl}/blob/main/content/docs/${page.path}`}
           />
         </div>
-        <DocsBody>
+        <DocsBody className="guide-body">
           <MDX
             components={getMDXComponents({
               // Lets a page link to another by its relative file path.
-              a: createRelativeLink(source, page),
+              a: createRelativeLink(source, page, Link),
             })}
           />
         </DocsBody>

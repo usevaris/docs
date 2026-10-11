@@ -1,6 +1,123 @@
 ---
 title: "Quickstart: publish a service"
-description: Publish your first service on Varis with the TypeScript SDK and the varis CLI.
+description: Put your API on Varis in under three minutes, from the dashboard or the CLI.
 ---
 
-{/* Covers: Install the SDK and CLI, define a service, verify requests, and publish it. */}
+In this quickstart, you publish an API you already run as a paid service on Varis. When you finish, agents can find it and pay to call it.
+
+## Before you begin
+
+- [Create a Varis account](https://usevaris.com/sign-up).
+- Have an API endpoint deployed at a public `https` address.
+
+## Publish your service
+
+Choose how you want to publish. The dashboard needs no code. The CLI reads your service from your code.
+
+<Tabs items={['Dashboard', 'CLI']}>
+<Tab value="Dashboard">
+
+1. In the [dashboard](https://usevaris.com/services), go to **Services**.
+1. Click **Add service**.
+1. Fill in **Name**, **Description**, **Type**, and **Endpoint URL**, and choose at least one category.
+1. In **Price per request (in cents)**, enter the price of your service in US cent. You'll be paid by agents for each use of the service. Enter `0` for a free service.
+1. Under **Input schema** and **Output schema**, click **Add field** for each field your endpoint takes and returns.
+1. Click **Publish service**.
+
+</Tab>
+<Tab value="CLI">
+
+1. Install the CLI:
+
+   ```bash tab="macOS" tab-group="varis-docs-os"
+   brew install usevaris/tap/varis
+   ```
+
+   ```bash tab="Linux" tab-group="varis-docs-os"
+   brew install usevaris/tap/varis
+   ```
+
+   ```powershell tab="Windows" tab-group="varis-docs-os"
+   scoop bucket add varis https://github.com/usevaris/scoop-bucket
+   scoop install varis/varis
+   ```
+
+1. Install the SDK in your project:
+
+   ```bash tab="npm" tab-group="varis-docs-package-manager"
+   npm install @usevaris/sdk
+   ```
+
+   ```bash tab="pnpm" tab-group="varis-docs-package-manager"
+   pnpm add @usevaris/sdk
+   ```
+
+   ```bash tab="yarn" tab-group="varis-docs-package-manager"
+   yarn add @usevaris/sdk
+   ```
+
+   ```bash tab="bun" tab-group="varis-docs-package-manager"
+   bun add @usevaris/sdk
+   ```
+
+   ```bash tab="deno" tab-group="varis-docs-package-manager"
+   deno add npm:@usevaris/sdk
+   ```
+
+1. In the file that handles your route, declare your service:
+
+   ```ts tab="TypeScript" tab-group="varis-docs-language"
+   import { Varis } from "@usevaris/sdk";
+
+   const varis = new Varis();
+
+   varis.services.define<
+     { from: string; to: string; amount: number },
+     { rate: number; converted: number }
+   >({
+     slug: "convert-currency",
+     name: "Convert currency",
+     description: "Converts an amount from one currency to another.",
+     service_type: "data",
+     categories: ["finance", "forex"],
+     endpoint_url: "https://api.example.com/currency/convert",
+     price_cents: 10,
+   });
+   ```
+
+1. Publish:
+
+   ```bash
+   varis publish
+   ```
+
+   The first time you run it, the CLI asks you to sign in through your browser and choose an owner.
+
+</Tab>
+</Tabs>
+
+Your service is live. Agents can find it and call it, and you earn 10 cents, less the platform fee, on every successful call.
+
+## Verify requests from Varis
+
+Before you take real traffic, make sure your endpoint answers requests from Varis. Add one check at the top of your handler:
+
+```ts tab="TypeScript" tab-group="varis-docs-language"
+if (!(await varis.verifyRequest(request))) {
+  return new Response("Unauthorized", { status: 401 });
+}
+```
+
+`verifyRequest` accepts a Web `Request` or a Node.js `req`, so it works in Next.js, Express, Hono, and most other frameworks. 
+
+If you published from the dashboard, install `@usevaris/sdk` and create `const varis = new Varis()` first. You can verify requests from Varis using the SDK.
+
+<Callout title="Not a TypeScript project?">
+Use the [List Signing Keys](/reference/listSigningKeys) to verify requests. [Learn more](/publish/fulfill-requests).
+</Callout>
+
+## What's next
+
+- [Publish a service](/publish/create): dive deeper into the nuances of publishing services on Varis.
+- [Fulfil requests](/publish/fulfill-requests): how Varis calls your endpoint and what it expects back.
+- [Set up payouts](/earnings/payouts): your earnings will be deposited in your payout account. 

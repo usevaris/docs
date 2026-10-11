@@ -1,6 +1,118 @@
 ---
 title: "Quickstart: connect an agent"
-description: Connect an AI agent to Varis and invoke your first service.
+description: Connect your AI assistant or your own agent to Varis and call your first paid service in under three minutes.
 ---
 
-{/* Covers: Buy credits, connect an agent, and invoke a service. */}
+In this quickstart, you connect an agent to Varis and call a service. When you finish, your agent can find services and pay for them from your Varis balance.
+
+## Before you begin
+
+[Create a Varis account](https://usevaris.com/sign-up). Your account starts with free credits, so you don't need to top up to finish this quickstart.
+
+## Connect your agent
+
+Choose the kind of agent you run.
+
+<Tabs items={['AI assistant', 'Headless agent']}>
+<Tab value="AI assistant">
+
+Use this tab for Claude, ChatGPT, Cursor, and other assistants that support MCP.
+
+1. In your assistant, add a custom connector or MCP server with this URL:
+
+   ```txt
+   https://api.usevaris.com/v1/mcp
+   ```
+
+   In a coding agent, add it from the command line or its settings:
+
+   ```bash tab="Claude Code" tab-group="varis-docs-agent"
+   claude mcp add --transport http varis https://api.usevaris.com/v1/mcp
+   ```
+
+   ```bash tab="Codex" tab-group="varis-docs-agent"
+   codex mcp add varis --url https://api.usevaris.com/v1/mcp
+   ```
+
+   ```jsonc tab="Cursor" tab-group="varis-docs-agent"
+   // ~/.cursor/mcp.json
+   {
+     "mcpServers": {
+       "varis": {
+         "url": "https://api.usevaris.com/v1/mcp"
+       }
+     }
+   }
+   ```
+
+   ```bash tab="Gemini CLI" tab-group="varis-docs-agent"
+   gemini mcp add --transport http varis https://api.usevaris.com/v1/mcp
+   ```
+
+   ```bash tab="VS Code" tab-group="varis-docs-agent"
+   code --add-mcp '{"name":"varis","type":"http","url":"https://api.usevaris.com/v1/mcp"}'
+   ```
+
+1. When your browser opens, sign in to Varis.
+1. Set the spend limits for this assistant, and then click **Allow**.
+1. Ask your assistant to use Varis. For example:
+
+   ```txt
+   Use Varis to convert 100 US dollars to euros.
+   ```
+
+Your assistant searches Varis for a matching service, calls it, and pays for the call from your balance.
+
+</Tab>
+<Tab value="Headless agent">
+
+Use this tab for scripts, backend services, and agents you build yourself.
+
+1. In the [dashboard](https://usevaris.com/agents), go to **Agents**.
+1. Click **Create agent**.
+1. Enter a **Name**, and set the **Per request** and **Per day** limits.
+1. Click **Create agent**, and then copy the agent key. Varis shows it only once.
+1. Find a service:
+
+   ```bash
+   curl "https://api.usevaris.com/v1/services?q=currency" \
+     -H "Authorization: Bearer AGENT_KEY"
+   ```
+
+   Replace `AGENT_KEY` with your agent key. Copy the `id` of a service from the response.
+
+1. Call the service:
+
+   ```bash
+   curl https://api.usevaris.com/v1/invoke \
+     -H "Authorization: Bearer AGENT_KEY" \
+     -H "Idempotency-Key: $(uuidgen)" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "service_id": "SERVICE_ID",
+       "input": { "from": "USD", "to": "EUR", "amount": 100 }
+     }'
+   ```
+
+   Replace `SERVICE_ID` with the `id` from the previous step. The `input` must match the service's `input_schema` from the search response.
+
+The response contains the service's `output`.
+
+</Tab>
+</Tabs>
+
+You pay only when a service returns a valid response. If the service fails or times out, Varis refunds the caller.
+
+<Callout type="warning" title="About spend limits">
+Leaving the limits blank would enable **Carte Blanche** for the agent, allowing it to spend on services without restrain. 
+
+Setting the limits to `0` restricts your agent to find and use only free services.
+</Callout>
+
+To see the services you've used and what they cost, go to [Transactions](https://usevaris.com/transactions) in the dashboard.
+
+## What's next
+
+- [Buy credits](/use/buy-credits) before your free credits run out.
+- [Set spend limits](/use/spend-limits) for each agent.
+- [Discover and invoke services](/use/invoke): search filters, retries, and errors.

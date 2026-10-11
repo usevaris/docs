@@ -111,6 +111,9 @@ tags:
       Signing in the `varis` CLI. The device authorisation flow from RFC 8628:
       the CLI starts a sign-in, the developer approves it in the dashboard, and
       the CLI collects a device token.
+  - name: Request signing
+    description: |
+      The public keys that verify requests Varis sends to your endpoint.
 
 # =============================================================================
 # paths: the API itself.
@@ -861,6 +864,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  # ---------------------------------------------------------------------------
+  # Request signing. Public. Served by
+  # app/.well-known/varis-signing-keys/route.ts in varis.
+  # ---------------------------------------------------------------------------
+  /.well-known/varis-signing-keys:
+    get:
+      operationId: listSigningKeys
+      summary: List signing keys
+      description: |
+        The public keys that verify the signature on requests Varis sends to
+        your endpoint. Use the key whose `kid` matches the request's
+        `X-Varis-Key-Id` header.
+
+        Needs no credential.
+      tags: [Request signing]
+      security: []
+      responses:
+        "200":
+          description: The current signing keys.
+          headers:
+            Cache-Control:
+              description: How long to cache the keys.
+              schema:
+                type: string
+              example: public, max-age=3600
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SigningKeys"
+
 components:
   # ---------------------------------------------------------------------------
   # How callers authenticate. Referenced by name from every `security:` key.
@@ -1487,6 +1520,40 @@ components:
           description: Seconds to wait before the next poll. Present on `authorization_pending` and `slow_down`.
         request_id:
           type: string
+
+    SigningKeys:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          description: Every key that may sign a request. Match on `kid`.
+          items:
+            $ref: "#/components/schemas/SigningKey"
+
+    SigningKey:
+      type: object
+      required: [kid, alg, use, public_key_pem]
+      properties:
+        kid:
+          type: string
+          description: The key ID. A signed request names it in `X-Varis-Key-Id`.
+          example: k1
+        alg:
+          type: string
+          enum: [Ed25519]
+          description: The signature algorithm.
+        use:
+          type: string
+          enum: [sig]
+          description: What the key is for. Always `sig`, for verifying signatures.
+        public_key_pem:
+          type: string
+          description: The public key, as an SPKI PEM.
+          example: |
+            -----BEGIN PUBLIC KEY-----
+            MCowBQYDK2VwAyEAUveyTfJ/zen7AvAKxSG3Q0HZ+GGw6aLk5/pOI097FQE=
+            -----END PUBLIC KEY-----
 
     OwnerMembership:
       type: object

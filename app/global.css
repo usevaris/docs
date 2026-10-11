@@ -422,6 +422,53 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Code
+
+   Code blocks sit on their own shade, a step off the panel, so they read
+   as blocks without leaning on the border. Their text is a pixel over
+   Fumadocs' 13px, with looser lines. Inline code in guide pages takes the
+   violet of the panel's aurora: a tinted chip with a faint rim. Reference
+   pages keep their own styles: their field names and paths aren't inline
+   code.
+   --------------------------------------------------------------------------- */
+:root {
+  --code-bg: #f7f7f8;
+  --code-inline-bg: hsl(268 85% 66% / 0.08);
+  --code-inline-border: hsl(268 85% 66% / 0.25);
+  --code-inline-fg: hsl(268 55% 42%);
+}
+
+.dark {
+  --code-bg: #1a1a1c;
+  --code-inline-bg: hsl(268 85% 66% / 0.12);
+  --code-inline-border: hsl(268 85% 66% / 0.3);
+  --code-inline-fg: hsl(268 90% 82%);
+}
+
+figure.shiki:not(.not-fumadocs-codeblock *) {
+  background: var(--code-bg);
+}
+
+figure.shiki:not(.not-fumadocs-codeblock *) > .fd-scroll-container {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.guide-body :not(pre) > code {
+  padding: 0.125em 0.375em;
+  border-color: var(--code-inline-border);
+  border-radius: 0.375rem;
+  background: var(--code-inline-bg);
+  color: var(--code-inline-fg);
+  font-size: 0.875em;
+}
+
+/* In links and headings, code keeps the surrounding colour. */
+.guide-body :is(a, h1, h2, h3, h4) > code {
+  color: inherit;
+}
+
 /* Opening a dialog locks scrolling; keep the page from shifting sideways. */
 html > body[data-scroll-locked] {
   margin-right: 0px !important;

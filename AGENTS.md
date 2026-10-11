@@ -74,6 +74,30 @@ and code font for code. Don't use em dashes.
   MDX page without an import. Set `type` to `info` (the default),
   `warning`, `error`, `success`, or `idea`, and add `title` if it needs one:
   `<Callout type="warning" title="Before you publish">Text.</Callout>`.
+- For steps that differ by route, such as the dashboard and the CLI, use
+  `<Tabs items={['Dashboard', 'CLI']}>` with a `<Tab value="...">` for
+  each, available in every MDX page without an import.
+- For a command or sample that differs by operating system or SDK
+  language, write consecutive code blocks with a `tab` and a `tab-group`
+  after the language. They render as one block with tabs, and the reader's
+  choice carries to every block in the same group, on every page:
+  - Operating system: `tab-group="varis-docs-os"`, with `tab` set to
+    `macOS`, `Linux`, or `Windows`.
+  - SDK language: `tab-group="varis-docs-language"`, with `tab` set to
+    `TypeScript`. Give a language block its tab even when it's the only
+    one, so that new SDKs slot in.
+  - Package manager: `tab-group="varis-docs-package-manager"`, with `tab`
+    set to `npm`, `pnpm`, `yarn`, `bun`, or `deno`.
+  - Coding agent: `tab-group="varis-docs-agent"`, with `tab` set to
+    `Claude Code`, `Codex`, `Cursor`, `Gemini CLI`, or `VS Code`.
+
+  Spell each `tab` exactly as listed, or the choice doesn't carry over:
+
+  ````md
+  ```bash tab="macOS" tab-group="varis-docs-os"
+  brew install usevaris/tap/varis
+  ```
+  ````
 
 # This is NOT the Next.js you know
 
