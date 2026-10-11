@@ -1,6 +1,269 @@
 ---
 title: Publish a service
-description: Publish a new service so agents can discover and invoke it.
+description: Publish a service from the dashboard or with the CLI, and learn what every field does.
 ---
 
-{/* Covers: Publish a new service. */}
+This page explains how to describe your service to Varis and publish it. If you want the shortest path, see [Quickstart: publish a service](/quickstart/publish).
+
+## Before you begin
+
+- [Create a Varis account](https://usevaris.com/sign-up).
+- Deploy your endpoint to a public `https` address.
+- Add `verifyRequest` to your endpoint. For more information, see [Fulfil requests](/publish/fulfill-requests).
+
+## Service fields
+
+Every service has the same fields, whether you publish from the dashboard or with the CLI.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| Name | Yes | A readable name, up to 128 characters. |
+| Slug | Yes | A permanent ID for the service within your owner, such as `convert-currency`. Use lowercase letters, numbers, and single hyphens, up to 64 characters. |
+| Description | Yes | What the service does, in 20 to 1,024 characters. Agents read it to decide whether to call your service. |
+| Instructions | No | How agents should use the service when the input fields can't say it, such as another service to call first. Up to 2,000 characters. |
+| Type | Yes | One of `data`, `content`, `tool`, `skill`, `compute`, `memory`, `storage`, `model`, or `messaging`. |
+| Categories | Yes | One or more categories from the [list of categories](/reference/publishService). |
+| Price | No | What an agent pays per call, in whole US cents. The default is `0`, which makes the service free. |
+| Endpoint URL | Yes | The address Varis calls. See [Endpoint rules](#endpoint-rules). |
+| Method | No | `GET` or `POST`. The default is `GET`. See [Choose GET or POST](#choose-get-or-post). |
+| Input schema | No | The fields your service takes. If you leave it out, your service takes no input. |
+| Output schema | Yes | The fields your service returns. |
+
+<Callout>
+Write the description and instructions for agents, not for people. An agent picks your service based on what you write there.
+</Callout>
+
+<Callout type="warning">
+**The slug is permanent. If you change a slug and publish again, Varis creates a second service instead of renaming the first.**
+</Callout>
+
+## Publish your service
+
+<Tabs items={['Dashboard', 'CLI']}>
+<Tab value="Dashboard">
+
+1. In the [dashboard](https://usevaris.com/services), go to **Services**.
+1. Click **Add service**.
+1. Fill in **Name**, **Slug**, and **Description**.
+1. Fill in **Instructions (optional)**.
+1. Choose a **Type** and at least one category.
+1. In **Price per request (in cents)**, enter a price, or enter `0` for a free service.
+1. Enter the **Endpoint URL**, and choose a **Method**.
+1. If your service takes input, click **Add field** under **Input schema** for each field. For each field, enter a key, choose a type, and choose **Required** or **Optional**.
+1. Under **Output schema**, add each field your service returns in the same way.
+1. Click **Publish service**.
+
+Your service is live, and agents can find it.
+
+Varis saves your service as a draft while you fill in the form. If you close the form before you publish, open the draft from **Services** to finish it.
+
+</Tab>
+<Tab value="CLI">
+
+1. Install the CLI. For more information, see [Install the CLI](/cli/install).
+1. Install the SDK in your project:
+
+   ```bash tab="npm" tab-group="varis-docs-package-manager"
+   npm install @usevaris/sdk
+   ```
+
+   ```bash tab="pnpm" tab-group="varis-docs-package-manager"
+   pnpm add @usevaris/sdk
+   ```
+
+   ```bash tab="yarn" tab-group="varis-docs-package-manager"
+   yarn add @usevaris/sdk
+   ```
+
+   ```bash tab="bun" tab-group="varis-docs-package-manager"
+   bun add @usevaris/sdk
+   ```
+
+   ```bash tab="deno" tab-group="varis-docs-package-manager"
+   deno add npm:@usevaris/sdk
+   ```
+
+
+1. Declare your service with `varis.services.define`. Pass your input and output types as type arguments:
+
+   ```ts
+   import { Varis } from "@usevaris/sdk";
+
+   const varis = new Varis();
+
+   type Input = {
+     /** ISO 4217 code of the currency to convert from, such as USD. */
+     from: string;
+     /** ISO 4217 code of the currency to convert to, such as EUR. */
+     to: string;
+     /** The amount to convert. */
+     amount: number;
+   };
+
+   type Output = {
+     rate: number;
+     converted: number;
+   };
+
+   varis.services.define<Input, Output>({
+     slug: "convert-currency",
+     name: "Convert currency",
+     description: "Converts an amount from one currency to another at the current exchange rate.",
+     service_type: "data",
+     categories: ["finance", "forex"],
+     endpoint_url: "https://api.example.com/currency/convert",
+     price_cents: 10,
+   });
+   ```
+
+1. From your project folder, publish:
+
+   ```bash
+   varis publish
+   ```
+
+The CLI prints `created`, `updated`, or `unchanged` for each service, or the error that stopped it.
+
+</Tab>
+</Tabs>
+
+## Declare services in code
+
+This section applies to the CLI only.
+
+### I/O Types
+
+The CLI turns your `Input` and `Output` types into JSON Schemas when you publish. Write both type arguments. TypeScript can't infer them, and the build fails without them.
+
+You can use strings, numbers, booleans, `null`, literals and literal unions, arrays, objects, optional fields, index signatures, and unions of those. A field marked with `?` is optional. Every other field is required.
+
+<Callout type="warn">
+You can't use `any`, `unknown`, `bigint`, `symbol`, functions, classes with methods, `Date`, `Map`, `Set`, `Promise`, tuples, or recursive types. Send dates as strings.
+</Callout>
+
+If your service takes no input, use `void` as the input type: 
+
+```ts
+varis.services.define<void, Output>({
+  // ...rest of the service definition.
+  })
+```
+
+### Comments
+
+Comments on your fields become descriptions in the schema, and agents read them. Write them for agents. A comment above the field or at the end of its line works, in any comment style.
+
+
+```ts
+type Input = {
+  /** ISO 4217 code of the currency to convert from. */
+  from: string;
+  // ISO 4217 code of the currency to convert to.
+  to: string;
+  amount: number; // The amount to convert.
+}
+```
+
+A comment above the `Input` or `Output` type describes the whole schema.
+
+```ts
+/** Pass the argument: 
+ * `from` and `to`: ISO 4217 code of the currencies. 
+ * `amount`: integer in the lowest denomination of the `from` currency. 
+ * */
+type Input = {
+  from: string;
+  to: string;
+  amount: number;
+}
+```
+<Callout>
+Comments are read into the schema as field (or schema) descriptions. Use them to give agents better context. 
+</Callout>
+
+To keep a comment out of your published service, leave a blank line between the comment and the field or type. Use this for internal notes, such as TODOs, that agents shouldn't see.
+
+```ts
+type Input = {
+  // TODO: add support for historical rates.
+
+  /** ISO 4217 code of the currency to convert from, such as USD. */
+  from: string;
+  // ..
+};
+```
+
+Agents see the description of `from`. They don't see the TODO.
+
+### Literal values
+
+The CLI reads `define` from your source code. It doesn't run your code. Every value you pass to `define` must be written out in full. An environment variable or any other computed value fails the build, and the CLI tells you the file and line.
+
+### Endpoint address
+
+Varis needs a full endpoint URL for every service. You give it one in either of two ways:
+
+- **`endpoint_url`:** the full address, such as `https://api.example.com/currency/convert`. Varis uses it as written.
+- **`path`:** only the path, such as `/currency/convert`. Varis joins it to the `base_url` in `varis.json` to build the endpoint URL.
+
+Use `path` if your services share one host. The set `base_url` allows you to change the host in one place instead of in every `define` call.
+
+To set `base_url`, run:
+
+```bash
+varis init --base-url https://api.example.com
+```
+
+If you set `endpoint_url` on a service, Varis uses it and ignores `path` and `base_url` for that service. This lets you point one service at a different host.
+
+If you set `path` but `varis.json` has no `base_url`, `varis build` fails.
+
+<Callout>
+`base_url` is your production address, and it lives in `varis.json` with your code, not in an environment variable. That way, a staging address can't ship by mistake.
+</Callout>
+
+### Publish one service
+
+To publish only one service from a project with several, pass its slug:
+
+```bash
+varis publish convert-currency
+```
+
+### `varis.json`
+
+The first time you run `varis publish`, the CLI creates `varis.json` and writes your services to it. Commit it with your code. It contains your owner's ID, which isn't a secret, and it never contains a credential.
+
+For more information, see [`varis.json`](/cli/varis-json).
+
+## Choose GET or POST
+
+The method decides how your input reaches your endpoint.
+
+| | `GET` | `POST` |
+| --- | --- | --- |
+| Where the input goes | The query string | A JSON body |
+| Input shape | Flat: strings, numbers, booleans, literal unions, and arrays of those | Any supported shape, including nested objects |
+| Numbers and booleans | Arrive as strings, so you parse them | Arrive as JSON values |
+| Logged by your server | Yes, in your access logs | Usually not |
+
+Use `GET` if your endpoint already reads query parameters and your input is flat. Use `POST` if your input is nested or contains anything sensitive.
+
+For `GET`, an array repeats its key, such as `?tag=a&tag=b`. Varis sends only the fields declared in your input schema, and it leaves out `null` values and empty arrays.
+
+## Endpoint rules
+
+Varis accepts an endpoint URL only if it meets these rules:
+
+- It uses `https`.
+- It's publicly reachable. Varis rejects `localhost` and private addresses.
+- It has no query string or fragment. Declare query values as input fields instead.
+
+Varis never follows redirects. A redirect counts as a failed call, and the agent isn't charged. Publish the final address. Common causes of redirects are a trailing slash, `http` to `https`, and `www` to the bare domain.
+
+To test against `localhost` before you publish, see [Local development](/cli/local-development).
+
+## What's next
+
+- [Fulfil requests](/publish/fulfill-requests): what Varis sends to your endpoint and what it expects back.
+- [Update a service](/publish/update).

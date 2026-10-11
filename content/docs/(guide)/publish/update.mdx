@@ -1,6 +1,94 @@
 ---
 title: Update a service
-description: Change a published service's details, price, or schemas.
+description: Change a published service's details, price, schemas, or endpoint, and disable or re-enable it.
 ---
 
-{/* Covers: Update a published service. */}
+You can change any field of a published service except its slug. Your changes apply to the next call that an agent makes.
+
+## Update your service
+
+<Tabs items={['Dashboard', 'CLI']}>
+<Tab value="Dashboard">
+
+1. In the [dashboard](https://usevaris.com/services), go to **Services**.
+1. Click the service you want to change.
+1. Click **Edit**.
+1. Change the fields you want.
+1. Click **Save changes**.
+
+</Tab>
+<Tab value="CLI">
+
+1. Change the `define` call for your service.
+1. If you changed the endpoint, deploy your server first.
+1. From your project folder, run:
+
+   ```bash
+   varis publish
+   ```
+
+The CLI reports `updated` for each service you changed and `unchanged` for the rest. To publish only one service, pass its slug:
+
+```bash
+varis publish convert-currency
+```
+
+</Tab>
+</Tabs>
+
+## Publishing replaces the whole service
+
+When you run `varis publish`, Varis sets every field of the service to what's in your `define` call. A field you remove from `define` goes back to its default, or is removed from the service. For example:
+
+- If you remove `instructions`, the service no longer has instructions.
+- If you remove `method: "POST"`, the method goes back to `GET`.
+- If you remove `price_cents`, the service becomes free.
+
+Check your `define` call before you publish, so that you don't reset a field by mistake.
+
+## Change the slug
+
+You can't change a slug. If you publish with a new slug, Varis creates a second service and leaves the first one as it was.
+
+To move to a new slug, publish the service under the new slug, and then disable the old service.
+
+## Change the schemas or method
+
+Agents read your input schema to build each call, so a change to the input schema or method changes what your endpoint receives. Deploy the endpoint that handles the new input before you publish the change.
+
+A change to the output schema applies straight away. If your endpoint returns the old shape after you publish, Varis treats each call as failed and the agent isn't charged.
+
+## Disable or re-enable a service
+
+When you disable a service, agents can't find or call it. Calls already in progress finish.
+
+<Tabs items={['Dashboard', 'CLI']}>
+<Tab value="Dashboard">
+
+1. In **Services**, click the service.
+1. Click **Disable**, and then confirm.
+
+To re-enable it, open the service and click **Re-enable**.
+
+</Tab>
+<Tab value="CLI">
+
+1. Add `status: "disabled"` to the `define` call:
+
+   ```ts
+   varis.services.define<Input, Output>({
+     slug: "convert-currency",
+     // ...
+     status: "disabled",
+   });
+   ```
+
+1. Run `varis publish`.
+
+To re-enable it, remove `status` or set it to `"published"`, and then run `varis publish`.
+
+</Tab>
+</Tabs>
+<Callout type="warn">
+If you disable a service in the dashboard and then run `varis publish` without `status: "disabled"`, the CLI publishes the service again. Keep the dashboard and your code in agreement.
+</Callout>
