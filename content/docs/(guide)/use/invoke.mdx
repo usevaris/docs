@@ -1,6 +1,119 @@
 ---
 title: Discover and invoke services
-description: Find a service and call it with POST /v1/invoke.
+description: Search Varis for services, call them through the HTTP API, retry safely, and handle every error.
 ---
 
-{/* Covers: Discover and invoke services. */}
+An agent uses Varis in two steps: it searches for a service, and then it invokes the service. This page covers both through the HTTP API. 
+
+If your agent uses MCP, the `search_services` and `invoke_service` tools do the same two things with the same rules.
+
+Every request needs an agent key in the `Authorization` header. For more information, see [Headless agents](/use/agent-keys).
+
+## Search for services
+
+Send a `GET` request to `/v1/services`:
+
+```bash
+curl "https://api.usevaris.com/v1/services?q=convert+currency&max_price_cents=5" \
+  -H "Authorization: Bearer $VARIS_AGENT_KEY"
+```
+
+The response lists the matching services in `data`. Choose one by its `description`, `instructions`, `price_cents`, and `input_schema`, and then copy its `id`.
+
+For every parameter and response field, see [Search published services](/reference/searchServices).
+
+## Invoke a service
+
+Send a `POST` request to `/v1/invoke`:
+
+```bash
+curl https://api.usevaris.com/v1/invoke \
+  -H "Authorization: Bearer $VARIS_AGENT_KEY" \
+  -H "Idempotency-Key: 5f0c2c1e-9b0e-4a77-8a52-3d1d1a2f0b6e" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service_id": "var_serv_ydZfZ9gKKe1tQe",
+    "input": { "from": "USD", "to": "EUR", "amount": 100 }
+  }'
+```
+
+You always call Varis with `POST`, whatever method the service uses. Varis sends the input to the service the right way.
+
+If the call succeeds, Varis returns `200`, and the service's result is in `output`. For every field and response, see [Invoke a service](/reference/invoke).
+
+You pay only for calls that return `200`.
+
+## Retry safely with an idempotency key
+
+Every call needs an `Idempotency-Key` header. Use a new, unique value, such as a UUID, for each call you mean to make.
+
+If a call times out or your connection drops, retry it with the **same** key. Varis recognises the key and doesn't charge you twice:
+
+- **If the first call is still running,** Varis returns `409` with `invocation_in_progress`. Wait, and then retry with the same key.
+- **If the first call failed,** Varis returns the same error again.
+- **If the first call succeeded,** Varis returns `200` with `"replayed": true`, but not the output. Keep the output from the first response if you need it.
+
+If you reuse a key for a different service, Varis returns `409` with `conflict`.
+
+<Callout title="Privacy Rule">
+Varis transmits service outputs once and never stores them. Agents typically hold them in short memory while executing their tasks. If an agent needs the output for later, it should cache it.
+</Callout>
+
+## Handle errors
+
+Every error has the same shape:
+
+```json
+{
+  "error": {
+    "code": "input_schema_violation",
+    "message": "The input does not match the service's input schema.",
+    "details": [{ "path": "/amount", "message": "must be number" }]
+  },
+  "request_id": "var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1"
+}
+```
+
+| Status | Code | Charged | What to do |
+| --- | --- | --- | --- |
+| `400` | `input_schema_violation` | No | Fix the input to match `input_schema`. `details` lists each problem. |
+| `400` | `invalid_request` | No | Fix the request, such as a missing `Idempotency-Key`. |
+| `401` | `unauthorized` | No | Check the agent key, and check that the agent isn't revoked. |
+| `402` | `insufficient_funds` | No | Show the `funding_url` to a person, and retry once they top up. |
+| `403` | `forbidden` | No | The call is over the agent's spend limits. See [Spend limits](/use/spend-limits). |
+| `404` | `not_found` | No | The service doesn't exist. Search again. |
+| `409` | `service_not_invocable` | No | The service is disabled. Search for another one. |
+| `409` | `invocation_in_progress` | No | Retry later with the same key. |
+| `409` | `conflict` | No | Use a new idempotency key. |
+| `429` | `rate_limited` | No | Wait for the number of seconds in `Retry-After`, and then retry. |
+| `502` | `provider_error` | No | The service failed. Retry with a new key, or choose another service. |
+| `502` | `schema_violation` | No | The service's output violates the I/O contract. Choose another service. |
+| `504` | `timeout` | No | The service took longer than 30 seconds. Retry with a new key, or choose another service. |
+
+### Insufficient funds
+
+If your balance can't cover a call, Varis returns `402` with a funding link:
+
+```json
+{
+  "error": {
+    "code": "insufficient_funds",
+    "message": "The balance does not cover this call.",
+    "funding_url": "https://usevaris.com/fund/t/abc123"
+  },
+  "request_id": "var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1"
+}
+```
+
+Show `funding_url` to a person exactly as it is. Anyone who opens it can top up your balance, without signing in. After they pay, retry the call with the same idempotency key.
+
+The link expires after 30 minutes. If it expires, the next retry returns a new one.
+
+## Limits on requests
+
+Each agent can make 120 calls a minute to `/v1/invoke`. Past that, Varis returns `429` with a `Retry-After` header.
+
+## What's next
+
+- [Transactions and receipts](/use/transactions).
+- [Spend limits](/use/spend-limits).
