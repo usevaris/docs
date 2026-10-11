@@ -1,6 +1,57 @@
 ---
-title: Transactions and receipts
-description: Review what your agents spent, and the receipt for each invocation.
+title: Transactions
+description: See every top-up, service call, earning, and refund on your account, and trace each one back to the call that caused it.
 ---
 
-{/* Covers: Transactions and receipts. */}
+Every time money moves on your account, Varis records a transaction. You see them all in **Transactions** in the [dashboard](https://usevaris.com/transactions).
+
+Transactions are immutable.
+
+## Types of transactions
+
+| Type | What it records |
+| --- | --- |
+| **Top-up** | Money you added to your balance. |
+| **Grant** | The free credit Varis gave you when you signed up. |
+| **Service call** | What one of your agents paid to call a service. |
+| **Earning** | What you earned when an agent called one of your services. |
+| **Reversal** | A correction that undoes exactly one other transaction. |
+| **Payout** | Earnings sent from Varis to your bank account. |
+
+## Statuses
+
+A service call is held first and then settled or released. Every other transaction is settled as soon as it's recorded.
+
+| Status | Meaning |
+| --- | --- |
+| **On hold** | The call is in progress. The amount is set aside from your balance, but hasn't moved yet. |
+| **Settled** | Final. The amount has moved. |
+| **Failed** | The call failed. The amount went back to your balance, and nobody was charged. |
+
+## Find a transaction
+
+To narrow the list, use the filters at the top of **Transactions**. You can filter by transaction type and status.
+
+## See transaction details
+
+Click a transaction to open its details.
+
+- **Transaction:** the transaction ID, type, description, amount, status, and when it was created, held, and completed.
+- **Call:** for a service call or an earning, the invocation ID, whether the call succeeded, and the service it called. Click through to see the request and its failure reason, if it failed.
+- **Breakdown:** for an earning, what the agent paid, the platform fee, and what you received.
+- **Reversal:** for a reversal, why it happened and which transaction it reverses.
+
+## Trace a call from your code
+
+Every response from Varis includes a `request_id` and, for calls, an `invocation_id`. Log both. To find the matching transaction, open the transaction's details and compare its **Invocation ID**.
+
+If you run a service, Varis sends the same request ID to your endpoint in the `X-Varis-Request-Id` header, so you can match your server logs to the call too.
+
+## Receipts for top-ups
+
+Stripe processes every top-up. The payment appears on your card statement as **Varis credits**.
+
+## What's next
+
+- [Top up your balance](/use/topup).
+- [How earnings work](/earnings).
