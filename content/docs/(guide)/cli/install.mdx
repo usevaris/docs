@@ -1,6 +1,90 @@
 ---
-title: Install
-description: Install the varis CLI.
+title: Install the CLI
+description: Install the Varis CLI on macOS, Linux, or Windows, and keep it up to date.
 ---
 
-{/* Covers: Install the CLI. */}
+The Varis CLI is a single program. You don't need Node.js to install it.
+
+## Install
+
+Choose your system:
+
+```bash tab="macOS" tab-group="varis-docs-os"
+brew install usevaris/tap/varis
+```
+
+```bash tab="Linux" tab-group="varis-docs-os"
+brew install usevaris/tap/varis
+```
+
+```powershell tab="Windows" tab-group="varis-docs-os"
+scoop bucket add varis https://github.com/usevaris/scoop-bucket
+scoop install varis/varis
+```
+
+To check that it worked, run:
+
+```bash
+varis --version
+```
+
+### Install without Homebrew or Scoop
+
+If you don't use Homebrew or Scoop, use the install script.
+
+```bash tab="macOS" tab-group="varis-docs-os"
+curl -fsSL https://raw.githubusercontent.com/usevaris/varis-cli/main/install.sh | sh
+```
+
+```bash tab="Linux" tab-group="varis-docs-os"
+curl -fsSL https://raw.githubusercontent.com/usevaris/varis-cli/main/install.sh | sh
+```
+
+```powershell tab="Windows" tab-group="varis-docs-os"
+irm https://raw.githubusercontent.com/usevaris/varis-cli/main/install.ps1 | iex
+```
+
+The script does the following:
+
+1. Downloads the latest release and checks it against the release's `SHA256SUMS`.
+1. Installs `varis` in `~/.varis/bin`, or `%USERPROFILE%\.varis\bin` on Windows.
+1. Adds that folder to your `PATH`.
+
+Open a new terminal before you run `varis`.
+
+You can change what the script does with these environment variables:
+
+| Variable | What it does |
+| --- | --- |
+| `VARIS_VERSION` | Installs a specific version, such as `VARIS_VERSION=0.2.0`. |
+| `VARIS_NO_MODIFY_PATH` | If set to `1`, doesn't change your `PATH`. |
+| `VARIS_INSTALL_DIR` | Installs somewhere else. `varis upgrade` and `varis dracarys` only work with the default folder. |
+
+## Supported systems
+
+- macOS on Apple silicon and Intel.
+- Linux on x64 and ARM, with glibc. Alpine and other musl-based systems aren't supported.
+- Windows on x64.
+
+<Callout>
+The CLI isn't code-signed yet. If you download it from a browser, macOS and Windows might warn you. Homebrew, Scoop, and the install script are less affected.
+</Callout>
+
+## Upgrade
+
+To upgrade to the latest version, run:
+
+```bash
+varis upgrade
+```
+
+The CLI upgrades itself the same way you installed it: with `brew upgrade`, `scoop update`, or by replacing itself after a checksum check. If you're already on the latest version, it does nothing.
+
+`varis upgrade` only installs full releases. Pre-releases, such as `0.2.0-rc.1`, are never installed unless you ask for one with `VARIS_VERSION`.
+
+If you installed the CLI in a custom folder or downloaded it by hand, install it again instead.
+
+## What's next
+
+- [Sign in with `varis login`](/cli/login).
+- [Publish a service](/publish/create).
