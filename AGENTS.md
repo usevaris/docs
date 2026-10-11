@@ -44,8 +44,10 @@ app's deployment at `https://varis-docs.vercel.app`.
 
 - `next.config.mjs` sets `basePath: '/docs'`. Every route here lives under
   it, including `/docs/_next` assets and `/docs/api/search`.
-- Next adds the base path to `<Link>` and router paths. Anything fetched by
-  URL (search, markdown) needs `withBasePath` from `lib/shared.ts`.
+- Next adds the base path to `<Link>` and router paths. Anything else
+  fetched by URL, such as search, needs `withBasePath` from `lib/shared.ts`.
+  Fumadocs' page actions (Copy Markdown, View Options) add it themselves, so
+  pass them a path without it.
 - In MDX, link to other pages as `/quickstart`, not `/docs/quickstart`.
 - The API reference lives under `/docs/reference`, one page per operation,
   generated from `openapi.yaml` on every build. Never under `/docs/api`,
@@ -68,6 +70,10 @@ and code font for code. Don't use em dashes.
   it.
 - Leave out anything that isn't built yet, rather than describing it as
   coming soon.
+- For a note the reader mustn't miss, use `<Callout>`, available in every
+  MDX page without an import. Set `type` to `info` (the default),
+  `warning`, `error`, `success`, or `idea`, and add `title` if it needs one:
+  `<Callout type="warning" title="Before you publish">Text.</Callout>`.
 
 # This is NOT the Next.js you know
 

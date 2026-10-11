@@ -1,6 +1,59 @@
 ---
 title: What is Varis
-description: Publish software capabilities that AI agents discover, pay for, and invoke.
+description: Learn how Varis lets you earn from your APIs and lets your AI agents pay for the services they use.
 ---
+<Callout>
+**Varis is in early access. Features and APIs may change.**
+</Callout>
 
-The guides are on their way. Until then, the [API Reference](/reference) describes every endpoint.
+Varis is a marketplace and payment layer for AI agents. You can use it in two ways:
+
+- **Publish services.** If you have an API that agents can use, you publish it to Varis and earn every time an agent calls it.
+- **Run agents.** If you run an agent, such as Claude, ChatGPT, or your own script, you connect it to Varis so that it can find and use services it needs to complete tasks.
+
+You can do both from one account.
+
+## Publish services
+
+You host your service on your own server, as you do today. Varis puts it in front of agents and handles the rest.
+
+When you publish a service, you describe it to Varis by specifying the I/O contract and the price. Agents then find your service through Varis Search and the MCP server.
+
+When an agent calls your service, Varis does the following:
+
+1. Checks that the agent is allowed to call your service and can afford it.
+1. Validates the agent's input against your I/O contract, so your server receives only well-formed requests.
+1. Sends a signed request to your endpoint.
+1. Validates your response against your I/O contract, so agents receive what they were promised.
+1. Credits your earnings when the response is valid.
+
+Your part is to verify the signature on each request, so that you know it comes from Varis, and to return a valid response. 
+
+A request from Varis comes from an agent, not from one of your own users, so you decide what data that request can access.
+
+Varis pays your earnings out to your bank account every month.
+
+## Run agents
+
+If you run agents, you add credits to your balance, and your agents spend from that balance on the services they use. 
+
+<Callout>
+**Your agents share from a credit pool and don't hold their own payment cards.**
+</Callout>
+
+You connect an agent in one of two ways:
+
+- **AI assistants**, such as Claude and ChatGPT, connect to the Varis MCP server. When you connect one, you approve the connection in your browser and set its spend limits.
+- **Headless agents**, such as scripts and backend services, use [an agent key](/use/agent-keys) that you create in the dashboard.
+
+Each agent has its own spend limits, so you control how much each one can spend per call and per day.
+
+When your agent calls a service, Varis places a hold on your balance for the price of the call. If the service is executed successfully, you pay. If the service fails, times out, or violates the I/O contract, Varis releases the hold and you pay nothing.
+
+You can see every call and every charge in your dashboard.
+
+## What's next
+
+- [Publish your first service](/quickstart/publish).
+- [Connect an agent to Varis](/quickstart/agent).
+- [Learn the core concepts](/concepts).

@@ -4,8 +4,8 @@ export const githubUrl = 'https://github.com/usevaris/docs';
 
 // The docs are a zone of usevaris.com: the main app rewrites /docs and
 // /docs/* to this app, so every route here lives under basePath. Next adds
-// basePath to <Link> and router paths on its own; anything fetched by URL
-// (search, markdown) needs withBasePath.
+// basePath to <Link> and router paths on its own; anything else fetched by
+// URL, such as search, needs withBasePath.
 export const basePath = '/docs';
 
 export function withBasePath(path: string) {
@@ -15,8 +15,10 @@ export function withBasePath(path: string) {
 // Each page's markdown, for AI readers, is served by app/llms.mdx.
 export const docsContentRoute = '/llms.mdx';
 
+// The url has no basePath: Fumadocs' Copy Markdown button and View Options
+// menu add it themselves.
 export function getPageMarkdownUrl(page: { slugs: string[] }) {
   const segments = [...page.slugs, 'content.md'];
 
-  return { segments, url: withBasePath(`${docsContentRoute}/${segments.join('/')}`) };
+  return { segments, url: `${docsContentRoute}/${segments.join('/')}` };
 }

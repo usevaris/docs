@@ -338,10 +338,10 @@
    Content widths
 
    Lines of text stop at 560px, short enough to read without trailing the
-   eye. The page's content tops out at 72rem (6xl), centred in the panel:
-   text on the left, the table of contents or API examples at the far right,
-   and open space between. Reference pages are `full`: their operation
-   layout (components/api-page.tsx) sets its own columns.
+   eye. The page's content tops out at 72rem (6xl), centred in the panel.
+   On guide pages the table of contents sits beside the text. Reference
+   pages are `full`: their operation layout (components/api-page.tsx) sets
+   its own columns, with the API examples at the far right.
    --------------------------------------------------------------------------- */
 [data-layout-content] {
   max-width: calc(560px + 2rem);
@@ -368,6 +368,17 @@
 
   #docs-scroll [data-layout-content][data-full='true'] {
     max-width: none;
+  }
+}
+
+/* Once the table of contents shows, it sits beside the text column rather
+   than at the far right, and the pair is centred. Reference pages, which
+   are full width, keep the wide grid. */
+@media (width >= 80rem) {
+  #docs-scroll:not(:has([data-layout-content][data-full='true'])) {
+    grid-template-columns: minmax(0, calc(560px + 4rem)) var(--fd-toc-width);
+    column-gap: 4rem;
+    justify-content: center;
   }
 }
 
