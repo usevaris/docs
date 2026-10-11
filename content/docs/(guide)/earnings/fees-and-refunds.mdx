@@ -1,6 +1,55 @@
 ---
 title: Fees and refunds
-description: The fees Varis charges, and when an invocation is refunded.
+description: Understand the Varis platform fee, who pays processing costs, and how refunds work for failed and reversed calls.
 ---
 
-{/* Covers: Fees and refunds. */}
+This page explains what Varis charges and when money goes back to the agent's owner.
+
+## The platform fee
+
+Varis charges one fee: 20% of the price of every successful paid call. The provider keeps the other 80%.
+
+- **Only successful calls carry a fee.** A failed call costs the agent's owner nothing and earns the provider nothing, so there's nothing to take a fee from.
+- **Free services carry no fee.**
+- **The fee rounds down.** When 20% doesn't divide evenly, Varis rounds the fee down, and the provider keeps the difference.
+
+Every earning shows the fee as its own line, so providers can check it against the price.
+
+## No other fees
+
+Varis doesn't charge providers or agent owners anything else.
+
+- **Card processing:** Varis bears the Stripe's fees on top-ups. A $10 top-up adds $10 to your balance.
+- **Discounts:** if Varis runs a discount or promotion, Varis pays for it.
+- **Payouts:** Varis doesn't charge for sending your earnings to your bank. Your bank might charge to receive an international payment.
+
+## Refunds for failed calls
+
+If a call fails, Varis refunds it automatically. You don't need to ask.
+
+A call fails, and is refunded, if the service does any of the following:
+
+- Returns a status code that isn't `2xx`.
+- Redirects.
+- Takes longer than 30 seconds.
+- Returns a response that doesn't match its I/O contract.
+
+Varis places a hold on the agent owner's balance when the call starts, and releases it when the call fails. The money never leaves the balance, so the refund is instant.
+
+## Refunds go to your balance
+
+Refunds go back to your Varis balance, not to your card. You can spend them on any service.
+
+## Reversals
+
+Sometimes a call succeeds but shouldn't have been charged. In those cases, Varis can reverse the call after a review. A reversal does two things together:
+
+- Refunds the price to the agent owner's balance.
+- Takes back the provider's earning for that call, including the fee.
+
+Each side sees a **Reversal** in **Transactions**, linked to the transaction it reverses. A reversal is final.
+
+## What's next
+
+- [How earnings work](/earnings).
+- [Payouts](/earnings/payouts).
