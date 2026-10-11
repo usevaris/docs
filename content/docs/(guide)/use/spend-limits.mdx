@@ -1,6 +1,76 @@
 ---
 title: Spend limits
-description: Cap how much an agent can spend.
+description: Control how much each agent can spend per call and per day, and which kinds of services it can call.
 ---
 
-{/* Covers: Spend limits. */}
+All of your agents spend from one balance. Spend limits let you control how much of that balance each agent can use, so that a rogue agent or a leaked key can't empty it.
+
+## Kinds of limits
+
+Each agent has three settings:
+
+| Limit | What it does | Example |
+| --- | --- | --- |
+| **Per request** | The most the agent can pay for one call. Varis rejects a call to any service priced above it. | Set $0.50 so the agent can't call an expensive service by mistake. |
+| **Per day** | The most the agent can spend in one day. | Set $20 so a loop in your code can't cost more than $20 a day. |
+| **Categories** | The kinds of services the agent can call. | Allow only `finance` and `forex` for a pricing bot. |
+
+Each setting is optional. An empty limit means no limit.
+
+<Callout>
+Setting an agent's spend limits at $0 restricts the agent to only free services.
+</Callout>
+
+## How limits work
+
+- **Limits belong to the agent, and the balance belongs to you.** Two agents with a $20 daily limit each don't set aside $40. They both spend from the same balance until either their limit or your balance runs out.
+- **A day runs from midnight to midnight UTC.** For example, in Lagos (UTC+1), an agent's daily limit resets at 00:00:00 UTC.
+- **Calls in progress count toward the daily limit.** Varis counts a call when it places the hold, not when the call finishes. This stops an agent from going over its limit by sending many calls at once.
+- **Failed calls don't count.** If a service fails or times out, Varis releases the hold, and the amount goes back into the agent's daily allowance.
+
+## Set limits
+
+You set limits when you create an agent or connect an assistant, and you can change them at any time.
+
+- **For a headless agent:** set **Per request** and **Per day** when you click **Create agent**. For more information, see [Headless agents](/use/agent-keys).
+- **For an AI assistant:** set the limits on the Varis approval screen when you connect it. For more information, see [Connect an AI assistant](/use/connect-an-assistant).
+
+If you create an agent with no limits, Varis asks you to confirm, because the agent can then spend your whole balance without restraint.
+
+## Change limits
+
+1. In the [dashboard](https://usevaris.com/agents), go to **Agents**.
+1. Open the agent's menu, and then click **Update limits**.
+1. Change **Per request** or **Per day**, or clear a field to remove that limit.
+1. Save your changes.
+
+To change which services the agent can call:
+
+1. Open the agent's menu, and then click **Update categories**.
+1. Choose **All categories**, or choose **Specific categories** and select the categories to allow.
+1. Save your changes.
+
+Changes apply to the agent's next call.
+
+## When an agent reaches a limit
+
+Varis rejects the call with HTTP `403` and the code `forbidden` before it charges anything. The message says which limit the call reached:
+
+| Message | What to do |
+| --- | --- |
+| This call costs more than the agent's per-call limit allows. | Choose a cheaper service, or raise the limit. |
+| The agent has reached its daily spend limit. | Wait until midnight UTC, or raise the limit. |
+
+A limit is different from a low balance. If your balance is too low, Varis returns `insufficient_funds` with a funding link instead. For more information, see [Top up your balance](/use/topup).
+
+## Choose good limits
+
+- **Set a per-request limit on every agent.** It's the simplest protection against an agent calling a service far more expensive than you expected.
+- **Set a daily limit close to what you expect to spend.** If an agent hits it, that's a signal to check what the agent is doing.
+- **Use categories for agents with one job.** An agent that only needs currency data doesn't need access to every service on Varis.
+- **Use one agent per job.** Separate agents get separate limits, and you can revoke one without stopping the others.
+
+## What's next
+
+- [Discover and invoke services](/use/invoke).
+- [Transactions and receipts](/use/transactions).
