@@ -1,6 +1,56 @@
 ---
 title: How earnings work
-description: How you earn when agents invoke your services.
+description: Learn when you earn from your services, how much you keep, and where to track it.
 ---
 
-{/* Covers: How earnings work. */}
+You earn every time an agent makes a successful, paid call to one of your services. Varis collects the price from the agent's owner, takes a platform fee, and credits the rest to your earnings.
+
+## When you earn
+
+You earn from a call only if all of these are true:
+
+- The service has a price above $0.
+- Your endpoint returns a `2xx` status code within 30 seconds.
+- Your response satisfies your I/O contract.
+
+If any of these fail, the call fails, the agent isn't charged, and you don't earn. For more information, see [Handle requests](/publish/handle-requests).
+
+Free services earn nothing, and Varis charges no fee on them.
+
+## How much you keep
+
+You keep 80% of the price of every successful call. Varis keeps 20% as its platform fee.
+
+| Price per call | Varis fee | You earn |
+| --- | --- | --- |
+| $0.01 | $0.002 | $0.008 |
+| $0.10 | $0.02 | $0.08 |
+| $1.00 | $0.20 | $0.80 |
+
+Varis tracks earnings to a hundredth of a cent, so the fee on even a 1-cent call is exact. When a fee doesn't divide evenly, Varis rounds the fee down, and you keep the difference.
+
+For more information, see [Fees and refunds](/earnings/fees-and-refunds).
+
+## When earnings appear
+
+An earning appears the moment a call succeeds. Each one shows as an **Earning** in **Transactions**, with a full breakdown.
+
+You can earn before you set up payouts. Your earnings build up, and Varis pays them out once your payout account is ready. For more information, see [Payouts](/earnings/payouts).
+
+## Track your earnings
+
+The [dashboard](https://usevaris.com/dashboard) shows your earnings in two places:
+
+- **Earnings:** your **Accrued earnings**, which are earnings not yet paid out, and the state of your payout account.
+- **Your services:** the last 7 days of activity across your services, including **Invocations**, **Success rate**, and a breakdown of why calls failed.
+
+A low success rate costs you money. Every failed call is a call you weren't paid for. Use the failure breakdown to find and fix the cause.
+
+## When an earning is reversed
+
+In rare cases, Varis reviews a call that already succeeded and reverses it. A reversal refunds the agent's owner and takes back your earning for that call. It appears in **Transactions** as a **Reversal** linked to the original earning.
+
+## What's next
+
+- [Fees and refunds](/earnings/fees-and-refunds).
+- [Payouts](/earnings/payouts).
