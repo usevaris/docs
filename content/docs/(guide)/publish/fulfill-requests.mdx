@@ -1,6 +1,126 @@
 ---
-title: Fulfill requests
-description: Handle the requests Varis forwards to your service.
+title: Handle requests
+description: Learn what Varis sends to your endpoint, how to verify it, and what your endpoint must return to get paid.
 ---
 
-{/* Covers: GET and POST, signature verification, output schema validation, requests with no end user. */}
+When an agent calls your service, Varis sends a signed request to your endpoint. Your endpoint checks the signature, does its work, and returns a response that matches your output schema. If it does, you earn. If it doesn't, the call fails and the agent isn't charged.
+
+## What Varis sends
+
+Varis sends one HTTP request to your endpoint URL, with the method you published.
+
+- **`GET`:** the input arrives in the query string, such as `?from=USD&to=EUR&amount=100`. There's no body.
+- **`POST`:** the input arrives as a JSON body, with `Content-Type: application/json`.
+
+Varis validates the input against your input schema before it calls you, so your endpoint receives only well-formed input. For `GET`, numbers and booleans still arrive as strings, so parse them.
+
+Every request carries these headers:
+
+| Header | Description |
+| --- | --- |
+| `X-Varis-Request-Id` | A unique ID for the call. Log it, so that you can match your logs to the call in the dashboard. |
+| `X-Varis-Signature` | The signature that `verifyRequest` checks. |
+| `X-Varis-Timestamp` | When Varis signed the request. |
+| `X-Varis-Key-Id` | The Varis signing key that signed the request. |
+
+## Verify the request
+
+Call `verifyRequest` before you do any work. It returns `true` if the request comes from Varis, and `false` otherwise.
+
+<Tabs items={['Next.js', 'Express']}>
+<Tab value="Next.js">
+
+```ts title="app/currency/convert/route.ts"
+import { Varis, VarisKeyFetchError } from "@usevaris/sdk";
+
+const varis = new Varis();
+
+export async function POST(request: Request) {
+  try {
+    if (!(await varis.verifyRequest(request))) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+  } catch (error) {
+    if (error instanceof VarisKeyFetchError) {
+      return new Response("Service unavailable", { status: 503 });
+    }
+    throw error;
+  }
+
+  const { from, to, amount } = await request.json();
+  const rate = await getRate(from, to);
+
+  return Response.json({ rate, converted: amount * rate });
+}
+```
+
+</Tab>
+<Tab value="Express">
+
+```ts title="server.ts"
+import express from "express";
+import { Varis } from "@usevaris/sdk";
+
+const app = express();
+const varis = new Varis();
+
+app.get("/currency/convert", async (req, res) => {
+  if (!(await varis.verifyRequest(req))) {
+    return res.status(401).send("Unauthorized");
+  }
+
+  const from = String(req.query.from);
+  const to = String(req.query.to);
+  const amount = Number(req.query.amount);
+  const rate = await getRate(from, to);
+
+  res.json({ rate, converted: amount * rate });
+});
+```
+
+</Tab>
+</Tabs>
+
+Follow these rules when you use `verifyRequest`:
+
+- **Create one `Varis` instance per process**, at the top of the file or in a shared module. Each instance caches the Varis signing keys, so a new instance per request fetches them every time.
+- **Verify before anything reads the body.** Body parsers such as `express.json()` consume the body, and the signature check then fails. For `POST` routes, call `verifyRequest` first, or skip the body parser on that route.
+- **Return `503`, not `401`, if the keys can't load.** `verifyRequest` throws `VarisKeyFetchError` only when it can't fetch the signing keys. That's a temporary problem on your side, not a bad request.
+- **Keep your server clock in sync.** Varis rejects requests signed more than 300 seconds before or after your server's time.
+
+The signature covers the method, path, query string, and body, but not the host. A proxy that changes the host is fine. A proxy or middleware that rewrites the path or query, such as one that strips a prefix, breaks the signature.
+
+## Decide what a Varis request can access
+
+A request from Varis comes from an agent, not from one of your own users. It carries no user session and no user ID.
+
+Treat it as its own kind of caller. Don't let it fall through to logic that assumes a signed-in user, and don't give it access to user data unless the service is built for that.
+
+## Return a response
+
+To complete the call, return the following:
+
+- A `2xx` status code.
+- A JSON body that matches your output schema.
+
+Varis checks your response against your output schema. If it matches, Varis passes the output to the agent, and you earn.
+
+The call fails, and the agent isn't charged, in any of these cases:
+
+| What happened | Example |
+| --- | --- |
+| Non-`2xx` status code | Your endpoint returns `500` or `404`. |
+| Redirect | Your framework adds a trailing slash and returns `308`. Varis never follows redirects. |
+| Timeout | Your endpoint takes longer than 30 seconds. |
+| Output doesn't match | A required field is missing, a field has the wrong type, or the body is empty or HTML. |
+
+To see why a call failed, open the service in **Services** and click the request. The **Failure reason** shows what went wrong.
+
+## Test your endpoint locally
+
+To send a signed test request to your endpoint on `localhost` before you publish, use `varis test`. For more information, see [Local development](/cli/local-development).
+
+## What's next
+
+- [Local development](/cli/local-development).
+- [How earnings work](/earnings).
