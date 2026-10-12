@@ -1,6 +1,58 @@
 ---
 title: varis build
-description: Build varis.json from your service definitions.
+description: Generate the services in varis.json from the define calls in your code.
 ---
 
-{/* Covers: varis build. */}
+`varis build` reads the `define` calls in your code and writes them to `varis.json`. You don't write JSON Schema by hand.
+
+You rarely need to run it yourself. `varis publish` runs it before every publish. Run it directly to check your services, or before `varis test`.
+
+## Build your services
+
+From your project folder, run:
+
+```bash
+varis build
+```
+
+The CLI does the following:
+
+1. Detects your project's language.
+1. Runs that language's Varis generator.
+1. The generator finds every `define` call, turns the types into JSON Schemas, and rewrites the `services` list in `varis.json`.
+
+If any service fails to build, nothing in `varis.json` changes. The CLI prints the file, line, and reason for each error.
+
+## Supported languages
+
+| Language | Detected by | Generator |
+| --- | --- | --- |
+| TypeScript or JavaScript | `package.json` | `@usevaris/build` |
+
+For any other language, write the services in `varis.json` by hand. For more information, see [Other languages](/sdks/other-languages).
+
+## Requirements
+
+For TypeScript and JavaScript projects, `varis build` runs the generator with `npx`, so you need Node.js and npm on the machine. The first run downloads `@usevaris/build`, so it needs network access and takes a little longer.
+
+## The generator doesn't run your code
+
+The generator reads your source files. It never runs them, so no database connections, API calls, or other side effects happen during a build.
+
+This is why every value you pass to `define` must be written out in full. An environment variable or any other computed value fails the build. For the full rules, see [Declare services in code](/publish/create#declare-services-in-code).
+
+## Common `varis build` errors
+
+| Error | Fix |
+| --- | --- |
+| A value isn't a literal | Write the value out in full, instead of using a variable or environment variable. |
+| A type can't be converted | Use a supported type. For example, send dates as strings. |
+| A `GET` service's input isn't flat | Make the input flat, or change the service to `POST`. |
+| `path` is set, but there's no `base_url` | Run `varis init --base-url <url>`, or drop `path` and use `endpoint_url` instead. |
+| Missing type arguments | Write both: `define<Input, Output>`. If no input is needed, write `define<void, Output>` |
+
+The build reports only the first bad field in each type. Fix it, and build again to see the next one.
+
+## What's next
+
+- [Publish with `varis publish`](/cli/publish).
