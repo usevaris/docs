@@ -1,6 +1,197 @@
 ---
 title: TypeScript
-description: Install @usevaris/sdk and define services with the Varis class.
+description: Declare Varis services and verify Varis requests in TypeScript and JavaScript with @usevaris/sdk.
 ---
 
-{/* Covers: Install and requirements, the Varis class (constructor options, services.define, verifyRequest). */}
+`@usevaris/sdk` does two things in your code:
+
+- **Declares your services** with `varis.services.define`, so the CLI can publish them.
+- **Verifies requests from Varis** with `varis.verifyRequest`, so your endpoint answers requests from Varis.
+
+It's small, it has no runtime dependencies, and it never sends your data anywhere.
+
+## Requirements
+
+The SDK runs on any of these:
+
+- Node.js 22.13 or later
+- Deno
+- Bun
+- Cloudflare Workers
+
+## Install
+
+   ```bash tab="npm" tab-group="varis-docs-package-manager"
+   npm install @usevaris/sdk
+   ```
+
+   ```bash tab="pnpm" tab-group="varis-docs-package-manager"
+   pnpm add @usevaris/sdk
+   ```
+
+   ```bash tab="yarn" tab-group="varis-docs-package-manager"
+   yarn add @usevaris/sdk
+   ```
+
+   ```bash tab="bun" tab-group="varis-docs-package-manager"
+   bun add @usevaris/sdk
+   ```
+
+   ```bash tab="deno" tab-group="varis-docs-package-manager"
+   deno add npm:@usevaris/sdk
+   ```
+
+You don't install the generator, `@usevaris/build`. `varis build` downloads and runs it for you.
+
+## Create a client
+
+```ts
+import { Varis } from "@usevaris/sdk";
+
+const varis = new Varis();
+```
+
+Create one `Varis` instance per process, such as in a shared `lib/varis.ts` file, and import it wherever you need it. Each instance caches the Varis signing keys, so a new instance per request fetches them every time.
+
+`new Varis()` never needs a credential. Your sign-in belongs to the CLI, not your server.
+
+### Options
+
+You rarely need these. They exist for testing.
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `keysUrl` | `string` | The Varis API | Where to fetch signing keys from. |
+| `publicKeys` | `VarisPublicKey[]` | None | Uses these keys instead of fetching any. Use it in unit tests. |
+| `maxClockSkewSeconds` | `number` | `300` | How far a request's timestamp can be from your server's clock. |
+
+## `new Varis().services.define`
+
+Declares a service. It does nothing when your code runs. The CLI finds it in your source code when you run `varis build` or `varis publish`.
+
+```ts
+import { Varis } from "@usevaris/sdk";
+
+const varis = new Varis();
+
+varis.services.define<Input, Output>({
+  slug: "convert-currency",
+  name: "Convert currency",
+  description: "Converts an amount from one currency to another at the current exchange rate.",
+  service_type: "data",
+  categories: ["finance", "forex"],
+  path: "/currency/convert",
+  price_cents: 10,
+});
+```
+
+Pass two type arguments:
+
+- **`Input`:** the input your service takes. Use `void` if it takes none.
+- **`Output`:** the output your service returns.
+
+The CLI turns both into JSON Schemas. Comments on fields become descriptions that agents read.
+
+### Fields
+
+| Field | Required | Default | Description |
+| --- | --- | --- | --- |
+| `slug` | Yes | | A permanent ID, unique within your owner. |
+| `name` | Yes | | A readable name. |
+| `description` | Yes | | What the service does, in 20 to 1,024 characters. |
+| `instructions` | No | | How agents should use the service, up to 2,000 characters. |
+| `service_type` | Yes | | The kind of service, such as `data` or `tool`. |
+| `categories` | Yes | | One or more categories. |
+| `endpoint_url` | One of these | | The full `https` address Varis calls. |
+| `path` | One of these | | A path joined to `base_url` in `varis.json`. |
+| `method` | No | `"GET"` | `"GET"` or `"POST"`. |
+| `price_cents` | No | `0` | The price per call in whole US cents. |
+| `version` | No | `"1.0.0"` | The service's version. |
+| `status` | No | `"published"` | `"published"` or `"disabled"`. |
+
+Your editor completes `service_type` and `categories` for you, because the SDK types every allowed value.
+
+Every value must be written out in full, not computed. For the full rules, see [Declare services in code](/publish/create#declare-services-in-code).
+
+## `new Varis().verifyRequest`
+ 
+Checks that a request comes from Varis.
+ 
+You don't need a separate route for Varis. If a route already serves your own users, and you're happy to give agents the same output, add `verifyRequest` beside your existing authorisation check. Let the request through if either check passes:
+ 
+```ts
+import { Varis } from "@usevaris/sdk";
+import { isAuthorisedUser } from "@utils/auth";
+
+const varis = new Varis();
+
+export async function GET(request: Request) {
+  const isAuthorised = (await varis.verifyRequest(request)) || (await isAuthorisedUser(request));
+ 
+  if (!isAuthorised) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+ 
+  // The rest of your route, unchanged.
+}
+```
+ 
+Replace `isAuthorisedUser` with however your route checks its users today.
+ 
+A request from Varis comes from an agent, not one of your users, so it carries no user session. If the rest of your route reads the current user, give Varis requests a path that doesn't need one. For more information, see [Handle requests](/publish/handle-requests).
+ 
+If a route serves only Varis, the check is shorter:
+ 
+```ts
+if (!(await varis.verifyRequest(request))) {
+  return new Response("Unauthorized", { status: 401 });
+}
+```
+ 
+### Arguments
+ 
+`verifyRequest` takes the incoming request, in either form:
+ 
+- A Web `Request`, as in Next.js route handlers, Hono, Deno, Bun, and Cloudflare Workers.
+- A Node.js `req`, as in Express, Fastify, and Next.js Pages Router API routes.
+
+<Callout type="warn">
+Call `verifyRequest` before anything reads the request body. It clones the request and verifies against the cloned copy. So, the actual request remains intact for you to read afterwards. 
+
+If you read the request body before calling `verifyRequest`, the request arrives tampered and the signature verification fails with `TypeError`. If you really need to read the request body earlier, read a clone.
+</Callout>
+ 
+### Return value
+ 
+- `true` if the request comes from Varis.
+- `false` if it doesn't, such as a missing or wrong signature, or a timestamp more than 5 minutes out.
+### Errors
+ 
+- **`VarisKeyFetchError`:** it couldn't load the Varis signing keys. That's a temporary problem on your side, not a bad request, so respond with `503`, not `401`.
+- **`TypeError`:** your code read the request body before calling `verifyRequest`. Call it first.
+### Test requests
+ 
+`verifyRequest` also verifies requests from `varis test` on your machine, with no changes to your code. For more information, see [Local development](/cli/local-development).
+ 
+## Exports
+
+| Export | Kind | Description |
+| --- | --- | --- |
+| `Varis` | Class | The client. |
+| `VarisKeyFetchError` | Class | Thrown when the signing keys can't load. |
+| `VarisOptions` | Type | The options for `new Varis()`. |
+| `VarisPublicKey` | Type | A signing key: `{ kid, public_key_pem }`. |
+| `ServiceDefinition` | Type | The fields `define` accepts. |
+| `ServiceType` | Type | Every allowed `service_type`. |
+| `ServiceCategory` | Type | Every allowed category. |
+| `ServiceMethod` | Type | `"GET" \| "POST"`. |
+| `ServiceStatus` | Type | `"draft" \| "published" \| "disabled"`. |
+
+## Instructions for coding agents
+
+The SDK ships with instructions for coding agents in `node_modules/@usevaris/sdk/docs/agents.md`. `varis init` points your project's `AGENTS.md` at them, so Claude Code, Cursor, and other agents can declare and verify services correctly without reading these docs.
+
+## What's next
+
+- [Publish a service](/publish/create).
+- [Handle requests](/publish/handle-requests).
