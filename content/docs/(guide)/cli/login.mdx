@@ -1,6 +1,73 @@
 ---
 title: varis login and varis logout
-description: Sign in to Varis from the CLI, and sign out.
+description: Sign your machine in to Varis so that the CLI can publish for you.
 ---
 
-{/* Covers: varis login and varis logout. */}
+The CLI publishes as you. Before it can publish, you sign your machine in to Varis once.
+
+You rarely need to run `varis login` yourself. `varis init` and `varis publish` run it for you when your machine isn't signed in.
+
+## Sign in
+
+1. Run:
+
+   ```bash
+   varis login
+   ```
+
+1. The CLI prints a link and a short code, and opens the link in your browser.
+1. In your browser, sign in to Varis, check that the code matches, and approve it.
+
+The CLI confirms that your machine is signed in.
+
+The code expires after 10 minutes. If it expires, run `varis login` again.
+
+### Sign in over SSH or in a cloud editor
+
+If you work over SSH or in a cloud editor such as Replit or Codespaces, the CLI can't open a browser on your machine. Open the printed link in any regular browser.
+
+To print the link without trying to open a browser, run:
+
+```bash
+varis login --no-browser
+```
+
+## How your sign-in works
+
+- **One sign-in covers every project** on the machine.
+- **Signing in again replaces** the machine's previous sign-in.
+- **Your sign-in credentials are long-lived.** If your credentials are compromised or expired, by any chance, the CLI will prompt you to sign in again.
+
+Your CLI session can publish and update services. It can't call services or spend your balance.
+
+<Callout title="A little joke for you">
+**Your sign-in credential is stored on your machine,** buried somewhere inside the Greywater Watch.  It's never included in any of your projects. You shouldn't try to find it. Only the CLI can Reed it.
+</Callout>
+
+## Sign out
+
+To sign this machine out, run:
+
+```bash
+varis logout
+```
+
+The CLI revokes the machine's sign-in on Varis and deletes it from your machine. Other machines stay signed in.
+
+If Varis can't be reached for any reason, the CLI still deletes the sign-in from your machine. It stays valid on Varis until it expires or you revoke it from the dashboard.
+
+## Sign out another machine
+
+If you lose a laptop or stop using a machine, sign it out from the dashboard:
+
+1. In the [dashboard](https://usevaris.com/dashboard), open **Settings** from your profile.
+1. Go to **Devices**.
+1. Find the machine and revoke it.
+
+## Limits on sign-ins
+
+You can start up to 10 sign-ins every 10 minutes from one IP address. If you go over, the CLI tells you how long to wait. Teams that share an office network share this limit.
+
+## What's next
+
+- [Set up a project with `varis init`](/cli/init).
