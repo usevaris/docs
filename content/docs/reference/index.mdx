@@ -1,20 +1,58 @@
 ---
 title: Overview
-description: Every endpoint of the Varis API, generated from its OpenAPI description.
+description: Every endpoint of the Varis API, with the credential each one takes.
 ---
 
-Every endpoint lives under `https://api.usevaris.com`.
+The base URL is 
+```txt
+https://api.usevaris.com
+```
 
-## Credentials
+Requests and responses are JSON.
 
-Two kinds of credential reach the API, both in the `Authorization: Bearer`
-header:
+## Endpoints
 
-- An **agent key**, prefixed `var_ak_`, invokes services and spends against
-  its owner's balance.
-- A **device token**, prefixed `var_dt_`, identifies a developer signed in
-  with `varis login`. Sent with `X-Varis-Owner-Identifier`, it publishes and
-  updates that owner's services. It never invokes and never spends.
+| Endpoint | Description | Credential |
+| --- | --- | --- |
+| [`POST /v1/invoke`](/reference/invoke) | Invoke a service | Agent key |
+| [`GET /v1/services`](/reference/searchServices) | Search published services | Either |
+| [`GET /v1/services/{service_id}`](/reference/getService) | Get a service | Either |
+| [`POST /v1/services`](/reference/publishService) | Publish a service | Device token |
+| [`PATCH /v1/services/{service_id}`](/reference/updateService) | Update your own service | Device token |
+| [`POST /v1/cli/device/code`](/reference/startDeviceAuthorisation) | Start a CLI sign-in | None |
+| [`POST /v1/cli/device/token`](/reference/exchangeDeviceCode) | Collect a CLI sign-in's token | None |
+| [`POST /v1/cli/logout`](/reference/logout) | Sign this machine out of the CLI | Device token |
+| [`GET /v1/me/owners`](/reference/listMyOwners) | List the owners you belong to | Device token |
+| [`GET /.well-known/varis-signing-keys`](/reference/listSigningKeys) | List signing keys | None |
 
-If you send the wrong kind of credential, the API answers `403`, not `401`:
-the credential is valid, but it isn't permitted for that operation.
+## Authentication
+
+Send the credential in the `Authorization: Bearer` header.
+
+- **Agent key** (`var_ak_...`): invokes services and spends from its owner's
+  balance. [Create one](/use/agent-keys) in the dashboard.
+- **Device token** (`var_dt_...`): identifies a developer signed in with
+  `varis login`. Send it with `X-Varis-Owner-Identifier`, set to the owner
+  you're acting for, to publish and update that owner's services. A device
+  token never invokes and never spends.
+
+If you send a valid credential of the wrong kind, the API returns `403`, not
+`401`.
+
+## Errors
+
+Every error has the same body:
+
+```json
+{
+  "error": {
+    "code": "insufficient_funds",
+    "message": "The balance does not cover this call."
+  },
+  "request_id": "var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1"
+}
+```
+
+Branch on `error.code`, not on `message`, whose wording can change. Quote
+`request_id` in support requests. Each endpoint's page lists the errors it
+can return.
