@@ -85,7 +85,10 @@ and code font for code. Don't use em dashes.
     `macOS`, `Linux`, or `Windows`.
   - SDK language: `tab-group="varis-docs-language"`, with `tab` set to
     `TypeScript`. Give a language block its tab even when it's the only
-    one, so that new SDKs slot in.
+    one, so that new SDKs slot in. For examples without an SDK, use
+    `Python`, `Go`, `Java`, `C#`, `PHP`, `Ruby`, or `Rust`. When the
+    examples hold more than code, such as a function and a route, use
+    `<Tabs groupId="varis-docs-language" persist items={[...]}>` instead.
   - Package manager: `tab-group="varis-docs-package-manager"`, with `tab`
     set to `npm`, `pnpm`, `yarn`, `bun`, or `deno`.
   - Coding agent: `tab-group="varis-docs-agent"`, with `tab` set to

@@ -1,6 +1,1038 @@
 ---
 title: Other languages
-description: Publish a service from any language by writing varis.json by hand.
+description: Publish and verify Varis services in any language, without an SDK.
 ---
 
-{/* Covers: Writing varis.json by hand. */}
+Varis has an SDK for TypeScript and JavaScript. You can use Varis from any other language, such as Python, Go, Ruby, PHP, or Java. Without an SDK, you do two things by hand:
+
+1. **Describe your services** in `varis.json`.
+1. **Verify requests** from Varis in your endpoint.
+
+Everything else works the same, including the CLI, the dashboard, and payouts.
+
+## Describe your services in `varis.json`
+
+1. Install the CLI. For more information, see [Install the CLI](/cli/install).
+1. From your project folder, set up the project:
+
+   ```bash
+   varis init --base-url https://api.example.com
+   ```
+
+1. Add your services to the `services` list in `varis.json`. Write the input and output as JSON Schema:
+
+   ```json title="varis.json"
+   {
+     "owner_id": "var_ownr_LOqdTCny9lP7CR",
+     "base_url": "https://api.example.com",
+     "services": [
+       {
+         "slug": "convert-currency",
+         "name": "Convert currency",
+         "description": "Converts an amount from one currency to another at the current exchange rate.",
+         "service_type": "data",
+         "categories": ["finance", "forex"],
+         "endpoint_url": "https://api.example.com/currency/convert",
+         "method": "GET",
+         "price_cents": 10,
+         "input_schema": {
+           "type": "object",
+           "properties": {
+             "from": { "type": "string", "description": "ISO 4217 code, such as USD." },
+             "to": { "type": "string", "description": "ISO 4217 code, such as EUR." },
+             "amount": { "type": "number" }
+           },
+           "required": ["from", "to", "amount"]
+         },
+         "output_schema": {
+           "type": "object",
+           "properties": {
+             "rate": { "type": "number" },
+             "converted": { "type": "number" }
+           },
+           "required": ["rate", "converted"]
+         }
+       }
+     ]
+   }
+   ```
+
+1. Publish:
+
+   ```bash
+   varis publish
+   ```
+
+Without an SDK, you write `endpoint_url` in full. The `path` shortcut only works when an SDK builds `varis.json` for you.
+
+For every field, see the [`varis.json` reference](/cli/varis-json). For the full API contracts, see the [API Reference](/reference).
+
+## Verify signatures without an SDK
+
+Varis signs every request with an Ed25519 key. To check that a request comes from Varis, your endpoint rebuilds the signed text and checks the signature against the Varis public key.
+
+### What Varis sends
+
+| Header | Value |
+| --- | --- |
+| `X-Varis-Signature` | The Ed25519 signature, base64-encoded. |
+| `X-Varis-Timestamp` | When Varis signed the request, in whole seconds since the Unix epoch. |
+| `X-Varis-Key-Id` | The ID of the key that signed it. |
+| `X-Varis-Request-Id` | The ID of the call. It isn't signed. |
+
+### What Varis signs
+
+Varis signs the UTF-8 bytes of this text:
+
+```txt
+{timestamp}.{method}.{path_and_query}.{raw_body}
+```
+
+| Part | Value |
+| --- | --- |
+| `timestamp` | The `X-Varis-Timestamp` header, exactly as sent. |
+| `method` | `GET` or `POST`. |
+| `path_and_query` | The path and query string exactly as received, still percent-encoded, without the host. For example, `/currency/convert?amount=100&from=USD&to=EUR`. |
+| `raw_body` | The request body as raw bytes. Empty for `GET`. |
+
+Use the path, query, and body exactly as they arrived. Don't parse and re-encode them. Re-encoding JSON or reordering query parameters changes the bytes, and the signature fails.
+
+### Where the keys are
+
+Fetch the public keys from:
+
+```txt
+https://api.usevaris.com/.well-known/varis-signing-keys
+```
+
+The response lists each key with its ID and an SPKI public key in PEM format:
+
+```json
+{
+  "keys": [
+    {
+      "kid": "KEY_ID",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n"
+    }
+  ]
+}
+```
+
+### Check a request
+
+To verify a request, do the following:
+
+1. Read `X-Varis-Signature`, `X-Varis-Timestamp`, and `X-Varis-Key-Id`. If any is missing, reject the request.
+1. Check that the timestamp is within 300 seconds of your server's clock. If it isn't, reject the request.
+1. Find the public key whose `kid` matches `X-Varis-Key-Id`. Cache the keys, and refetch them when you see an unknown key ID, at most once every few minutes.
+1. Build the signed text from the timestamp, method, path and query, and raw body.
+1. Verify the base64-decoded signature against the signed text with the public key.
+
+If any step fails, respond with `401`. If you can't fetch the keys, respond with `503`, because the problem is on your side, not the caller's.
+
+### Examples
+
+Each example has a function that verifies a request, and a route that calls it before doing anything else. Choose your language:
+
+<Tabs groupId="varis-docs-language" persist items={['Python', 'Go', 'Java', 'C#', 'PHP', 'Ruby', 'Rust']}>
+<Tab value="Python">
+
+This example uses the `requests` and `cryptography` packages:
+
+```python title="varis_verify.py"
+import base64
+import time
+
+import requests
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
+KEYS_URL = "https://api.usevaris.com/.well-known/varis-signing-keys"
+MAX_SKEW_SECONDS = 300
+REFETCH_SECONDS = 300
+
+_keys = {}
+_last_fetch = 0.0
+
+
+def _load_keys():
+    response = requests.get(KEYS_URL, timeout=5)
+    response.raise_for_status()
+    return {
+        key["kid"]: load_pem_public_key(key["public_key_pem"].encode())
+        for key in response.json()["keys"]
+    }
+
+
+def verify_varis_request(method, path_and_query, headers, raw_body):
+    """Returns True if the request comes from Varis.
+
+    method:          "GET" or "POST".
+    path_and_query:  the path and query exactly as received, such as
+                     "/currency/convert?amount=100&from=USD&to=EUR".
+    headers:         the request headers, with lowercase names.
+    raw_body:        the body as bytes, exactly as received. b"" for GET.
+    """
+    global _keys, _last_fetch
+
+    signature = headers.get("x-varis-signature")
+    timestamp = headers.get("x-varis-timestamp")
+    kid = headers.get("x-varis-key-id")
+    if not signature or not timestamp or not timestamp.isdigit():
+        return False
+    if abs(time.time() - int(timestamp)) > MAX_SKEW_SECONDS:
+        return False
+
+    # An unknown key ID can mean Varis rotated its keys. Refetch, but not
+    # more than once every few minutes, so forged requests can't make every
+    # call hit the network.
+    if kid not in _keys and time.time() - _last_fetch > REFETCH_SECONDS:
+        _last_fetch = time.time()
+        _keys = _load_keys()
+    key = _keys.get(kid)
+    if key is None:
+        return False
+
+    signed = f"{timestamp}.{method}.{path_and_query}.".encode() + raw_body
+    try:
+        key.verify(base64.b64decode(signature), signed)
+        return True
+    except (InvalidSignature, ValueError):
+        return False
+```
+
+In a Flask route:
+
+```python
+from flask import Flask, abort, jsonify, request
+
+from varis_verify import verify_varis_request
+
+app = Flask(__name__)
+
+
+@app.get("/currency/convert")
+def convert():
+    # The path and query as the client sent them, before Flask decodes them.
+    path_and_query = request.environ.get("RAW_URI") or request.full_path.rstrip("?")
+    if not verify_varis_request("GET", path_and_query, request.headers, request.get_data()):
+        abort(401)
+
+    # Your logic here.
+    return jsonify(rate=0.92, converted=92)
+```
+
+`request.headers` in Flask matches header names in any case. `RAW_URI` is set by Gunicorn and the Flask development server. If your server doesn't set it, make sure whatever you use keeps the path exactly as received.
+
+</Tab>
+<Tab value="Go">
+
+This example uses only the standard library:
+
+```go title="varisverify/verify.go"
+package varisverify
+
+import (
+	"crypto/ed25519"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
+	"encoding/pem"
+	"errors"
+	"net/http"
+	"strconv"
+	"sync"
+	"time"
+)
+
+const (
+	keysURL        = "https://api.usevaris.com/.well-known/varis-signing-keys"
+	maxSkewSeconds = 300
+	refetchEvery   = 300 * time.Second
+)
+
+var (
+	mu        sync.Mutex
+	keys      = map[string]ed25519.PublicKey{}
+	lastFetch time.Time
+	client    = http.Client{Timeout: 5 * time.Second}
+)
+
+func loadKeys() (map[string]ed25519.PublicKey, error) {
+	resp, err := client.Get(keysURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("varis: fetching signing keys: " + resp.Status)
+	}
+
+	var list struct {
+		Keys []struct {
+			Kid          string `json:"kid"`
+			PublicKeyPEM string `json:"public_key_pem"`
+		} `json:"keys"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return nil, err
+	}
+
+	loaded := map[string]ed25519.PublicKey{}
+	for _, k := range list.Keys {
+		block, _ := pem.Decode([]byte(k.PublicKeyPEM))
+		if block == nil {
+			return nil, errors.New("varis: invalid PEM for key " + k.Kid)
+		}
+		pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		edKey, ok := pub.(ed25519.PublicKey)
+		if !ok {
+			return nil, errors.New("varis: key " + k.Kid + " isn't Ed25519")
+		}
+		loaded[k.Kid] = edKey
+	}
+	return loaded, nil
+}
+
+// Verify reports whether the request comes from Varis. pathAndQuery is the
+// path and query exactly as received, and rawBody is the body exactly as
+// received. An error means the keys couldn't be fetched: respond 503.
+func Verify(method, pathAndQuery string, header http.Header, rawBody []byte) (bool, error) {
+	signature := header.Get("X-Varis-Signature")
+	timestamp := header.Get("X-Varis-Timestamp")
+	kid := header.Get("X-Varis-Key-Id")
+	if signature == "" {
+		return false, nil
+	}
+	ts, err := strconv.ParseUint(timestamp, 10, 64)
+	if err != nil {
+		return false, nil
+	}
+	if skew := time.Now().Unix() - int64(ts); skew > maxSkewSeconds || skew < -maxSkewSeconds {
+		return false, nil
+	}
+
+	// An unknown key ID can mean Varis rotated its keys. Refetch, but not
+	// more than once every few minutes, so forged requests can't make every
+	// call hit the network.
+	mu.Lock()
+	if _, ok := keys[kid]; !ok && time.Since(lastFetch) > refetchEvery {
+		lastFetch = time.Now()
+		fresh, err := loadKeys()
+		if err != nil {
+			mu.Unlock()
+			return false, err
+		}
+		keys = fresh
+	}
+	key, ok := keys[kid]
+	mu.Unlock()
+	if !ok {
+		return false, nil
+	}
+
+	sig, err := base64.StdEncoding.DecodeString(signature)
+	if err != nil {
+		return false, nil
+	}
+	signed := append([]byte(timestamp+"."+method+"."+pathAndQuery+"."), rawBody...)
+	return ed25519.Verify(key, signed, sig), nil
+}
+```
+
+In a `net/http` handler:
+
+```go
+func convert(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+
+	// r.RequestURI is the path and query exactly as the client sent them.
+	ok, err := varisverify.Verify(r.Method, r.RequestURI, r.Header, body)
+	if err != nil {
+		http.Error(w, "", http.StatusServiceUnavailable)
+		return
+	}
+	if !ok {
+		http.Error(w, "", http.StatusUnauthorized)
+		return
+	}
+
+	// Your logic here.
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]float64{"rate": 0.92, "converted": 92})
+}
+```
+
+</Tab>
+<Tab value="Java">
+
+This example needs Java 17 or later, which verifies Ed25519 without extra libraries, and Jackson to read the key list:
+
+```java title="VarisVerify.java"
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
+import java.time.Duration;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+
+public final class VarisVerify {
+    private static final URI KEYS_URL =
+        URI.create("https://api.usevaris.com/.well-known/varis-signing-keys");
+    private static final long MAX_SKEW_SECONDS = 300;
+    private static final long REFETCH_MILLIS = 300_000;
+    private static final HttpClient HTTP =
+        HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    private static Map<String, PublicKey> keys = new HashMap<>();
+    private static long lastFetch = 0;
+
+    private static Map<String, PublicKey> loadKeys()
+            throws IOException, InterruptedException, GeneralSecurityException {
+        HttpRequest request = HttpRequest.newBuilder(KEYS_URL).timeout(Duration.ofSeconds(5)).build();
+        HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 200) {
+            throw new IOException("Fetching the Varis signing keys returned " + response.statusCode());
+        }
+
+        KeyFactory factory = KeyFactory.getInstance("Ed25519");
+        Map<String, PublicKey> loaded = new HashMap<>();
+        for (JsonNode key : JSON.readTree(response.body()).get("keys")) {
+            String der = key.get("public_key_pem").asText().replaceAll("-----[^-]+-----|\\s", "");
+            loaded.put(
+                key.get("kid").asText(),
+                factory.generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(der))));
+        }
+        return loaded;
+    }
+
+    /**
+     * Returns true if the request comes from Varis. headers has lowercase
+     * names. Throws IOException if the keys can't be fetched: respond 503.
+     */
+    public static boolean verify(
+            String method, String pathAndQuery, Map<String, String> headers, byte[] rawBody)
+            throws IOException, InterruptedException {
+        String signature = headers.get("x-varis-signature");
+        String timestamp = headers.get("x-varis-timestamp");
+        String kid = headers.get("x-varis-key-id");
+        if (signature == null || timestamp == null || !timestamp.matches("\\d{1,18}")) {
+            return false;
+        }
+        if (Math.abs(System.currentTimeMillis() / 1000 - Long.parseLong(timestamp)) > MAX_SKEW_SECONDS) {
+            return false;
+        }
+
+        // An unknown key ID can mean Varis rotated its keys. Refetch, but not
+        // more than once every few minutes, so forged requests can't make
+        // every call hit the network.
+        PublicKey key;
+        synchronized (VarisVerify.class) {
+            if (!keys.containsKey(kid) && System.currentTimeMillis() - lastFetch > REFETCH_MILLIS) {
+                lastFetch = System.currentTimeMillis();
+                try {
+                    keys = loadKeys();
+                } catch (GeneralSecurityException e) {
+                    throw new IOException(e);
+                }
+            }
+            key = keys.get(kid);
+        }
+        if (key == null) {
+            return false;
+        }
+
+        try {
+            Signature verifier = Signature.getInstance("Ed25519");
+            verifier.initVerify(key);
+            verifier.update((timestamp + "." + method + "." + pathAndQuery + ".").getBytes(StandardCharsets.UTF_8));
+            verifier.update(rawBody);
+            return verifier.verify(Base64.getDecoder().decode(signature));
+        } catch (GeneralSecurityException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+}
+```
+
+In a Spring Boot controller:
+
+```java
+import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+class ConvertController {
+    @GetMapping("/currency/convert")
+    ResponseEntity<?> convert(HttpServletRequest request) throws IOException, InterruptedException {
+        // getRequestURI() and getQueryString() aren't decoded.
+        String query = request.getQueryString();
+        String pathAndQuery = request.getRequestURI() + (query == null ? "" : "?" + query);
+
+        Map<String, String> headers = new HashMap<>();
+        for (String name : Collections.list(request.getHeaderNames())) {
+            headers.put(name.toLowerCase(), request.getHeader(name));
+        }
+        byte[] body = request.getInputStream().readAllBytes();
+
+        boolean verified;
+        try {
+            verified = VarisVerify.verify(request.getMethod(), pathAndQuery, headers, body);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        if (!verified) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Your logic here.
+        return ResponseEntity.ok(Map.of("rate", 0.92, "converted", 92));
+    }
+}
+```
+
+</Tab>
+<Tab value="C#">
+
+.NET doesn't verify Ed25519 on its own, so this example uses the `NSec.Cryptography` package:
+
+```csharp title="VarisVerify.cs"
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Http;
+using NSec.Cryptography;
+
+public static class VarisVerify
+{
+    const string KeysUrl = "https://api.usevaris.com/.well-known/varis-signing-keys";
+    const long MaxSkewSeconds = 300;
+    static readonly TimeSpan RefetchEvery = TimeSpan.FromSeconds(300);
+    static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(5) };
+    static readonly SemaphoreSlim Lock = new(1, 1);
+
+    static Dictionary<string, PublicKey> _keys = new();
+    static DateTime _lastFetch = DateTime.MinValue;
+
+    record Key(
+        [property: JsonPropertyName("kid")] string Kid,
+        [property: JsonPropertyName("public_key_pem")] string PublicKeyPem);
+
+    record KeyList([property: JsonPropertyName("keys")] List<Key> Keys);
+
+    static async Task<Dictionary<string, PublicKey>> LoadKeysAsync()
+    {
+        var list = await Http.GetFromJsonAsync<KeyList>(KeysUrl)
+            ?? throw new HttpRequestException("The Varis signing key list was empty.");
+        return list.Keys.ToDictionary(
+            k => k.Kid,
+            k => PublicKey.Import(
+                SignatureAlgorithm.Ed25519,
+                Encoding.ASCII.GetBytes(k.PublicKeyPem),
+                KeyBlobFormat.PkixPublicKeyText));
+    }
+
+    // Returns true if the request comes from Varis. Throws
+    // HttpRequestException if the keys can't be fetched: respond 503.
+    public static async Task<bool> VerifyAsync(
+        string method, string pathAndQuery, IHeaderDictionary headers, byte[] rawBody)
+    {
+        string signature = headers["X-Varis-Signature"].ToString();
+        string timestamp = headers["X-Varis-Timestamp"].ToString();
+        string kid = headers["X-Varis-Key-Id"].ToString();
+        if (signature == "" || timestamp == "" || !timestamp.All(char.IsAsciiDigit)
+            || !long.TryParse(timestamp, out long ts))
+        {
+            return false;
+        }
+        if (Math.Abs(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ts) > MaxSkewSeconds)
+        {
+            return false;
+        }
+
+        // An unknown key ID can mean Varis rotated its keys. Refetch, but not
+        // more than once every few minutes, so forged requests can't make
+        // every call hit the network.
+        PublicKey? key;
+        await Lock.WaitAsync();
+        try
+        {
+            if (!_keys.ContainsKey(kid) && DateTime.UtcNow - _lastFetch > RefetchEvery)
+            {
+                _lastFetch = DateTime.UtcNow;
+                _keys = await LoadKeysAsync();
+            }
+            _keys.TryGetValue(kid, out key);
+        }
+        finally
+        {
+            Lock.Release();
+        }
+        if (key is null)
+        {
+            return false;
+        }
+
+        byte[] sig;
+        try
+        {
+            sig = Convert.FromBase64String(signature);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+        byte[] signed = [.. Encoding.UTF8.GetBytes($"{timestamp}.{method}.{pathAndQuery}."), .. rawBody];
+        return SignatureAlgorithm.Ed25519.Verify(key, signed, sig);
+    }
+}
+```
+
+In an ASP.NET Core minimal API:
+
+```csharp
+using Microsoft.AspNetCore.Http.Features;
+
+app.MapGet("/currency/convert", async (HttpContext context) =>
+{
+    // RawTarget is the path and query exactly as the client sent them.
+    string pathAndQuery = context.Features.Get<IHttpRequestFeature>()!.RawTarget;
+    using var body = new MemoryStream();
+    await context.Request.Body.CopyToAsync(body);
+
+    bool verified;
+    try
+    {
+        verified = await VarisVerify.VerifyAsync(
+            context.Request.Method, pathAndQuery, context.Request.Headers, body.ToArray());
+    }
+    catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+    {
+        return Results.StatusCode(503);
+    }
+    if (!verified)
+    {
+        return Results.Unauthorized();
+    }
+
+    // Your logic here.
+    return Results.Json(new { rate = 0.92, converted = 92 });
+});
+```
+
+</Tab>
+<Tab value="PHP">
+
+This example needs PHP 8 or later with the `sodium` extension, which PHP bundles. PHP doesn't keep memory between requests, so it caches the keys in a file:
+
+```php title="varis_verify.php"
+<?php
+
+const VARIS_KEYS_URL = 'https://api.usevaris.com/.well-known/varis-signing-keys';
+const VARIS_MAX_SKEW_SECONDS = 300;
+const VARIS_REFETCH_SECONDS = 300;
+
+function varis_keys_file(): string
+{
+    return sys_get_temp_dir() . '/varis-signing-keys.json';
+}
+
+function varis_load_keys(): array
+{
+    $context = stream_context_create(['http' => ['timeout' => 5]]);
+    $body = @file_get_contents(VARIS_KEYS_URL, false, $context);
+    if ($body === false) {
+        throw new RuntimeException('Could not fetch the Varis signing keys.');
+    }
+
+    $keys = [];
+    foreach (json_decode($body, true, flags: JSON_THROW_ON_ERROR)['keys'] as $key) {
+        $keys[$key['kid']] = $key['public_key_pem'];
+    }
+    file_put_contents(varis_keys_file(), json_encode($keys), LOCK_EX);
+    return $keys;
+}
+
+// Sodium wants the raw 32-byte key: the last 32 bytes of the PEM's 44-byte DER.
+function varis_raw_public_key(string $pem): ?string
+{
+    $der = base64_decode(preg_replace('/-----[^-]+-----|\s/', '', $pem), true);
+    if ($der === false || strlen($der) !== 44 || substr($der, 0, 12) !== hex2bin('302a300506032b6570032100')) {
+        return null;
+    }
+    return substr($der, 12);
+}
+
+/**
+ * Returns true if the request comes from Varis. $headers maps each header
+ * name to one value. Throws if the keys can't be fetched: respond 503.
+ */
+function varis_verify_request(string $method, string $pathAndQuery, array $headers, string $rawBody): bool
+{
+    $headers = array_change_key_case($headers, CASE_LOWER);
+    $signature = $headers['x-varis-signature'] ?? '';
+    $timestamp = $headers['x-varis-timestamp'] ?? '';
+    $kid = $headers['x-varis-key-id'] ?? '';
+    if ($signature === '' || !ctype_digit($timestamp)) {
+        return false;
+    }
+    if (abs(time() - (int) $timestamp) > VARIS_MAX_SKEW_SECONDS) {
+        return false;
+    }
+
+    // An unknown key ID can mean Varis rotated its keys. Refetch, but not
+    // more than once every few minutes, so forged requests can't make every
+    // call hit the network.
+    $file = varis_keys_file();
+    $cached = is_file($file);
+    $keys = $cached ? (json_decode(file_get_contents($file), true) ?? []) : [];
+    if (!isset($keys[$kid]) && (!$cached || time() - filemtime($file) > VARIS_REFETCH_SECONDS)) {
+        $keys = varis_load_keys();
+    }
+    if (!isset($keys[$kid])) {
+        return false;
+    }
+
+    $publicKey = varis_raw_public_key($keys[$kid]);
+    $sig = base64_decode($signature, true);
+    if ($publicKey === null || $sig === false || strlen($sig) !== SODIUM_CRYPTO_SIGN_BYTES) {
+        return false;
+    }
+
+    return sodium_crypto_sign_verify_detached($sig, "{$timestamp}.{$method}.{$pathAndQuery}.{$rawBody}", $publicKey);
+}
+```
+
+In a Laravel route, after you load `varis_verify.php`, such as through the `files` list in `composer.json`:
+
+```php
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/currency/convert', function (Request $request) {
+    // REQUEST_URI is the path and query exactly as the client sent them.
+    $pathAndQuery = $request->server('REQUEST_URI');
+    $headers = array_map(fn ($values) => $values[0], $request->headers->all());
+
+    try {
+        $verified = varis_verify_request($request->method(), $pathAndQuery, $headers, $request->getContent());
+    } catch (RuntimeException | JsonException) {
+        abort(503);
+    }
+    if (!$verified) {
+        abort(401);
+    }
+
+    // Your logic here.
+    return response()->json(['rate' => 0.92, 'converted' => 92]);
+});
+```
+
+</Tab>
+<Tab value="Ruby">
+
+This example needs Ruby 3.0 or later, whose `openssl` verifies Ed25519, and uses only the standard library:
+
+```ruby title="varis_verify.rb"
+require "json"
+require "net/http"
+require "openssl"
+
+module VarisVerify
+  KEYS_URL = URI("https://api.usevaris.com/.well-known/varis-signing-keys")
+  MAX_SKEW_SECONDS = 300
+  REFETCH_SECONDS = 300
+
+  @keys = {}
+  @last_fetch = 0.0
+  @mutex = Mutex.new
+
+  def self.load_keys
+    response = Net::HTTP.start(KEYS_URL.host, KEYS_URL.port, use_ssl: true,
+                               open_timeout: 5, read_timeout: 5) do |http|
+      http.get(KEYS_URL.path)
+    end
+    response.value # Raises unless the status is 2xx.
+    JSON.parse(response.body)["keys"].to_h do |key|
+      [key["kid"], OpenSSL::PKey.read(key["public_key_pem"])]
+    end
+  end
+
+  # Returns true if the request comes from Varis. headers has lowercase
+  # names. Raises if the keys can't be fetched: respond 503.
+  def self.verify(method, path_and_query, headers, raw_body)
+    signature = headers["x-varis-signature"]
+    timestamp = headers["x-varis-timestamp"]
+    kid = headers["x-varis-key-id"]
+    return false if signature.nil? || timestamp.nil? || !timestamp.match?(/\A\d+\z/)
+    return false if (Time.now.to_i - timestamp.to_i).abs > MAX_SKEW_SECONDS
+
+    # An unknown key ID can mean Varis rotated its keys. Refetch, but not
+    # more than once every few minutes, so forged requests can't make every
+    # call hit the network.
+    key = @mutex.synchronize do
+      if !@keys.key?(kid) && Time.now.to_f - @last_fetch > REFETCH_SECONDS
+        @last_fetch = Time.now.to_f
+        @keys = load_keys
+      end
+      @keys[kid]
+    end
+    return false if key.nil?
+
+    signed = "#{timestamp}.#{method}.#{path_and_query}.".b + raw_body.b
+    begin
+      key.verify(nil, signature.unpack1("m0"), signed)
+    rescue ArgumentError, OpenSSL::PKey::PKeyError
+      false
+    end
+  end
+end
+```
+
+In a Sinatra route:
+
+```ruby
+require "sinatra"
+require_relative "varis_verify"
+
+get "/currency/convert" do
+  # REQUEST_URI is the path and query exactly as the client sent them.
+  path_and_query = request.env["REQUEST_URI"] || request.fullpath
+  headers = request.env
+    .select { |name, _| name.start_with?("HTTP_X_VARIS_") }
+    .to_h { |name, value| [name.delete_prefix("HTTP_").downcase.tr("_", "-"), value] }
+
+  begin
+    verified = VarisVerify.verify(request.request_method, path_and_query, headers, request.body.read)
+  rescue StandardError
+    halt 503
+  end
+  halt 401 unless verified
+
+  # Your logic here.
+  content_type :json
+  { rate: 0.92, converted: 92 }.to_json
+end
+```
+
+Puma and most Rack servers set `REQUEST_URI`. If yours doesn't, make sure whatever you use keeps the path exactly as received.
+
+</Tab>
+<Tab value="Rust">
+
+This example uses `ed25519-dalek`, `base64`, `reqwest`, `serde`, and `tokio`. Add these to `Cargo.toml`:
+
+```toml title="Cargo.toml"
+[dependencies]
+axum = "0.8"
+base64 = "0.22"
+ed25519-dalek = { version = "2", features = ["pkcs8", "pem"] }
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+```
+
+```rust title="src/varis_verify.rs"
+use std::collections::HashMap;
+use std::error::Error;
+use std::sync::LazyLock;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use axum::http::HeaderMap;
+use base64::{engine::general_purpose::STANDARD, Engine};
+use ed25519_dalek::{pkcs8::DecodePublicKey, Signature, Verifier, VerifyingKey};
+use serde::Deserialize;
+use tokio::sync::Mutex;
+
+const KEYS_URL: &str = "https://api.usevaris.com/.well-known/varis-signing-keys";
+const MAX_SKEW_SECONDS: u64 = 300;
+const REFETCH_EVERY: Duration = Duration::from_secs(300);
+
+type BoxError = Box<dyn Error + Send + Sync>;
+
+#[derive(Default)]
+struct KeyCache {
+    keys: HashMap<String, VerifyingKey>,
+    last_fetch: Option<Instant>,
+}
+
+static CACHE: LazyLock<Mutex<KeyCache>> = LazyLock::new(|| Mutex::new(KeyCache::default()));
+
+#[derive(Deserialize)]
+struct KeyList {
+    keys: Vec<Key>,
+}
+
+#[derive(Deserialize)]
+struct Key {
+    kid: String,
+    public_key_pem: String,
+}
+
+async fn load_keys() -> Result<HashMap<String, VerifyingKey>, BoxError> {
+    let list: KeyList = reqwest::Client::new()
+        .get(KEYS_URL)
+        .timeout(Duration::from_secs(5))
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+
+    let mut keys = HashMap::new();
+    for key in list.keys {
+        keys.insert(key.kid, VerifyingKey::from_public_key_pem(&key.public_key_pem)?);
+    }
+    Ok(keys)
+}
+
+/// Returns Ok(true) if the request comes from Varis. An error means the keys
+/// couldn't be fetched: respond 503.
+pub async fn verify_varis_request(
+    method: &str,
+    path_and_query: &str,
+    headers: &HeaderMap,
+    raw_body: &[u8],
+) -> Result<bool, BoxError> {
+    let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
+    let (Some(signature), Some(timestamp)) = (header("x-varis-signature"), header("x-varis-timestamp"))
+    else {
+        return Ok(false);
+    };
+    let kid = header("x-varis-key-id").unwrap_or_default();
+    if timestamp.is_empty() || !timestamp.bytes().all(|b| b.is_ascii_digit()) {
+        return Ok(false);
+    }
+    let Ok(ts) = timestamp.parse::<u64>() else {
+        return Ok(false);
+    };
+    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+    if now.abs_diff(ts) > MAX_SKEW_SECONDS {
+        return Ok(false);
+    }
+
+    // An unknown key ID can mean Varis rotated its keys. Refetch, but not
+    // more than once every few minutes, so forged requests can't make every
+    // call hit the network.
+    let key = {
+        let mut cache = CACHE.lock().await;
+        let stale = cache.last_fetch.is_none_or(|at| at.elapsed() > REFETCH_EVERY);
+        if !cache.keys.contains_key(kid) && stale {
+            cache.last_fetch = Some(Instant::now());
+            cache.keys = load_keys().await?;
+        }
+        match cache.keys.get(kid) {
+            Some(key) => *key,
+            None => return Ok(false),
+        }
+    };
+
+    let Ok(sig_bytes) = STANDARD.decode(signature) else {
+        return Ok(false);
+    };
+    let Ok(sig) = Signature::from_slice(&sig_bytes) else {
+        return Ok(false);
+    };
+    let mut signed = format!("{timestamp}.{method}.{path_and_query}.").into_bytes();
+    signed.extend_from_slice(raw_body);
+    Ok(key.verify(&signed, &sig).is_ok())
+}
+```
+
+In an Axum handler:
+
+```rust
+use axum::{
+    body::Bytes,
+    extract::OriginalUri,
+    http::{HeaderMap, Method, StatusCode},
+    response::{IntoResponse, Response},
+    routing::get,
+    Json, Router,
+};
+use serde_json::json;
+
+use crate::varis_verify::verify_varis_request;
+
+pub fn router() -> Router {
+    Router::new().route("/currency/convert", get(convert))
+}
+
+async fn convert(method: Method, OriginalUri(uri): OriginalUri, headers: HeaderMap, body: Bytes) -> Response {
+    // The path and query as the client sent them, still percent-encoded.
+    let path_and_query = uri.path_and_query().map_or("/", |p| p.as_str());
+    match verify_varis_request(method.as_str(), path_and_query, &headers, &body).await {
+        Ok(true) => {}
+        Ok(false) => return StatusCode::UNAUTHORIZED.into_response(),
+        Err(_) => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
+    }
+
+    // Your logic here.
+    Json(json!({ "rate": 0.92, "converted": 92 })).into_response()
+}
+```
+
+</Tab>
+</Tabs>
+
+### Check your code with test vectors
+
+Before you take real traffic, check your verification code against these values. They use a sample key, not a real Varis key.
+
+Public key:
+
+```txt
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAA6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=
+-----END PUBLIC KEY-----
+```
+
+Both requests use the timestamp `1760227200`. Set your clock check to that time, or skip it while you test.
+
+**`GET` request:**
+
+| Part | Value |
+| --- | --- |
+| Signed text | `1760227200.GET./currency/convert?amount=100&from=USD&to=EUR.` |
+| Signature | `7lkSPdp78Bvn+k/bCJxk8FcYSIYwi05BbreVVRVFT41dOxxUCQ9HCAVsunSCz7FjRQTTNxvx6bITWRUFIemzAg==` |
+
+**`POST` request:**
+
+| Part | Value |
+| --- | --- |
+| Signed text | `1760227200.POST./currency/convert.{"amount":100,"from":"USD","to":"EUR"}` |
+| Signature | `c/aE1ylAC5IYa3nWWYPBg987NJyvHYfmvjH4lLC2P6FfglxuUVDdBH/7967aB9EdmuZY0mgU6JRIECgSJs9HAQ==` |
+
+Your code must accept both. Change one character of either signed text, and your code must reject it.
+
+## What's next
+
+- [Handle requests](/publish/handle-requests): what Varis sends and what it expects back.
+- [`varis.json` reference](/cli/varis-json).
