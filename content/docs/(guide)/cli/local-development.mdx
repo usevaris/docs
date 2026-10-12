@@ -1,6 +1,91 @@
 ---
 title: Local development
-description: Run and test your services locally before you publish.
+description: Test your service on your own machine with varis test, and fix any issues before you publish it.
 ---
 
-{/* Covers: Local development. */}
+`varis test` calls your service on your own machine, exactly as Varis would in production. It checks your input, signs the request, calls your endpoint, and checks your output. Nothing is published, charged, or recorded.
+
+## Requirements
+
+- The Varis CLI. For more information, see [Install the CLI](/cli/install).
+- For TypeScript and JavaScript projects, Node.js and npm. `varis build` runs the generator with `npx`. The CLI itself doesn't need Node.js.
+- Your server must be running on your machine (or wherever the `test_base_url` points to).
+
+## Set up local testing
+
+Tell the CLI where your local server runs. You only do this once per project:
+
+```bash
+varis init --test-base-url http://localhost:3000
+```
+`varis test` doesn't call your production address. It takes each service's endpoint, swaps `base_url` for `test_base_url`, keeps the rest of the endpoint as it is, and calls the result.
+
+`base_url` and `test_base_url` don't need the same path. Set `test_base_url` to wherever the same routes live on your local server.
+
+For example, your production setup might route `api.example.com` to your app's `/api` folder, while locally the same routes live under `localhost:3000/api`:
+
+```json
+{
+  "base_url": "https://api.example.com",
+  "test_base_url": "http://localhost:3000/api"
+}
+```
+
+A service published at `api.example.com/currency/convert` is tested at `localhost:3000/api/currency/convert`.
+
+If a service's `endpoint_url` doesn't start with `base_url`, such as `rates.example.com/latest`, `varis test` adds that endpoint's whole path to `test_base_url`. In this example, it calls `localhost:3000/api/latest`.
+
+## Test a service
+
+1. Start your dev server.
+1. If you changed a `define` call, build:
+
+   ```bash
+   varis build
+   ```
+
+1. Run `varis test` with the service's slug and an input:
+
+   ```bash
+   varis test convert-currency --input '{"from":"USD","to":"EUR","amount":100}'
+   ```
+
+The CLI prints your service's output if the call would succeed. If it would fail, the CLI tells you exactly why, such as a missing field in your output or a failed signature check.
+
+### Give the input
+
+| Option | Description |
+| --- | --- |
+| `--input '<json>'` | The input, as JSON. |
+| `--input-file <path>` | Reads the input from a JSON file. Use this on Windows, where quoting JSON in PowerShell and `cmd` is error-prone. |
+
+If you give no input, the CLI sends `{}` when the service has no required fields. Otherwise, it names the fields you need to give.
+
+## How test requests are signed
+
+Your endpoint verifies a test request with `verifyRequest`, the same as a real one. You don't change your code to test.
+
+While `varis test` runs, the CLI signs the request with a throwaway test key and serves the public half at `127.0.0.1:47823`. In development, the SDK fetches the key from there.
+
+This is safe in production. A test key is only reachable on the machine running `varis test`, so a production server never finds one, and a test request never verifies there.
+
+Test requests have a request ID that starts with `var_tst_req_`. Real ones start with `var_req_`.
+
+## Troubleshoot
+
+If a test request fails with `401`, the CLI's message says whether your server fetched the test key.
+
+- **Your server didn't fetch the key:** it can't reach the CLI, or it doesn't call `verifyRequest`. Check the cases in the following table.
+- **Your server fetched the key, but the check failed:** something changed the request before `verifyRequest` saw it, such as a body parser or a proxy that rewrites the path. Verify before parsing the request body.
+
+| Setup | Fix |
+| --- | --- |
+| Your server runs in Docker, and the CLI runs on your machine | Run `varis test` inside the container. |
+| You use `wrangler dev --remote` | Drop `--remote`. |
+| You use Deno | Allow the address: `--allow-net=127.0.0.1:47823`. |
+| Another `varis test` is running | Wait for it to finish. Only one can use port 47823 at a time. |
+
+## What's next
+
+- [Publish with `varis publish`](/cli/publish).
+- [Handle requests](/publish/handle-requests).
