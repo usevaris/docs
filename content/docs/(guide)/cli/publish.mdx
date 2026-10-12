@@ -1,6 +1,54 @@
 ---
 title: varis publish
-description: Publish your services, or one service by its slug.
+description: Publish the services in your project to Varis with one command.
 ---
 
-{/* Covers: varis publish. */}
+`varis publish` is the only command you need. It signs you in, sets up your project, builds your services, and publishes them.
+
+## Publish every service
+
+From your project folder, run:
+
+```bash
+varis publish
+```
+
+The CLI does the following, skipping anything that's already done:
+
+1. Runs `varis init`, which signs you in, if the project has no `varis.json`.
+1. Runs `varis build`. If the build fails, it stops before it publishes anything.
+1. Publishes each service in `varis.json`, one at a time.
+
+For each service, the CLI prints one of the following:
+
+| Result | Meaning |
+| --- | --- |
+| `created` | The slug is new, and the service is now live. |
+| `updated` | The service existed, and Varis saved your changes. |
+| `unchanged` | Nothing changed, so Varis did nothing. |
+| An error | Why Varis rejected the service. The CLI moves on to the next service, unless the error is with your sign-in, in which case it stops. |
+
+If any service fails, the CLI exits with a non-zero code.
+
+## Publish one service
+
+To publish only one service, pass its slug:
+
+```bash
+varis publish convert-currency
+```
+
+This is the fastest way to republish a service after you fix it.
+
+## What publishing does to a service
+
+Publishing replaces the whole service with what's in `varis.json`. If you remove a field from `define`, publishing resets it to its default. For more information, see [Update a service](/publish/update).
+
+## Who publishes
+
+Every publish records the owner the project belongs to and you, the person who's signed in. Publishing needs a signed-in person, so you can't publish from CI yet.
+
+## What's next
+
+- [`varis.json` reference](/cli/varis-json).
+- [Handle requests](/publish/handle-requests).
