@@ -1,6 +1,53 @@
 ---
 title: Uninstall
-description: Remove the varis CLI.
+description: Remove the Varis CLI from your machine with varis dracarys.
 ---
 
-{/* Covers: Uninstall the CLI. */}
+Leaving already? We'll miss you. But if Varis has to go, it goes out flaming: no configs left behind and no orphaned credentials.
+
+## Burn it down
+
+From the project you want to clean up, run:
+
+```bash
+varis dracarys
+```
+
+Yes, that's the command. The CLI lists what it's about to do and asks you to type `dracarys` to confirm. Then it does the following:
+
+1. Signs this machine out of Varis and revokes its sign-in.
+1. Removes this project's `varis.json`, and the Varis section that `varis init` added to `AGENTS.md`.
+1. Deletes the CLI's config folder.
+1. Uninstalls the CLI the same way you installed it: Homebrew, Scoop, or the install script. It removes the Homebrew tap or Scoop bucket too.
+
+<Callout>
+On Windows, because you can't uninstall a running program, `dracarys` injects a script that removes Varis from disc a few seconds after the command exits.
+</Callout>
+
+## What survives the fire
+
+- **Your Varis account.** It's still there when you come back.
+- **Your published services.** They stay live, and agents keep calling them. Disable them in the dashboard if you want them gone too.
+- **Your earnings.** They keep building up and paying out.
+- **Other projects.** `varis dracarys` only cleans the folder you run it in. Every other project keeps its `varis.json`.
+
+## Skip the confirmation
+
+If you're certain, and you'd rather not type the word:
+
+```bash
+varis dracarys --goddamnit
+```
+
+We didn't name it. Fine, we did.
+
+## Uninstall by hand
+
+If you installed the CLI in a custom folder or downloaded it by hand, `varis dracarys` can't uninstall the program itself. Run `varis logout` first, and then delete the `varis` binary and its config folder:
+
+- macOS and Linux: `~/.config/varis`
+- Windows: `%APPDATA%\varis`
+
+## Changed your mind?
+
+[Install the CLI](/cli/install) again. Your account and your services are right where you left them.
