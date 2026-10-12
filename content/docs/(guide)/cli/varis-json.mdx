@@ -1,6 +1,90 @@
 ---
 title: varis.json reference
-description: Every field in varis.json.
+description: Every field in varis.json, the file that describes your project's services to Varis.
 ---
 
-{/* Covers: varis.json reference. */}
+`varis.json` describes your project and its services. The CLI publishes what's in it, so it's the source of truth for your services.
+
+If you use an SDK, `varis build` writes the `services` list for you, and `varis init` writes the other fields. If you don't, you write the whole file by hand.
+
+You can commit `varis.json` to version control. It never contains a credential.
+
+## Example
+
+```json title="varis.json"
+{
+  "owner_id": "var_ownr_LOqdTCny9lP7CR",
+  "base_url": "https://api.example.com",
+  "test_base_url": "http://localhost:3000",
+  "services": [
+    {
+      "slug": "convert-currency",
+      "name": "Convert currency",
+      "description": "Converts an amount from one currency to another at the current exchange rate.",
+      "service_type": "data",
+      "categories": ["finance", "forex"],
+      "endpoint_url": "https://api.example.com/currency/convert",
+      "method": "GET",
+      "price_cents": 10,
+      "version": "1.0.0",
+      "status": "published",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "amount": { "type": "number" }
+        },
+        "required": ["from", "to", "amount"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "rate": { "type": "number" },
+          "converted": { "type": "number" }
+        },
+        "required": ["rate", "converted"]
+      }
+    }
+  ]
+}
+```
+
+## Project fields
+
+| Field | Set by | Description |
+| --- | --- | --- |
+| `owner_id` | `varis init` | The owner your services belong to. It's an ID, not a secret. |
+| `base_url` | `varis init --base-url` | Your production address. Varis joins each service's `path` to it. Must use `https`. |
+| `test_base_url` | `varis init --test-base-url` | Where `varis test` sends requests. It's never sent when you publish. |
+| `services` | `varis build` | The list of services to publish. |
+
+## Service fields
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `slug` | Yes | A permanent ID, unique within an owner. Lowercase letters, numbers, and single hyphens, up to 64 characters. |
+| `name` | Yes | A readable name, up to 128 characters. |
+| `description` | Yes | What the service does, in 20 to 1,024 characters. |
+| `instructions` | No | How agents should use the service, up to 2,000 characters. |
+| `service_type` | Yes | One of `data`, `content`, `tool`, `skill`, `compute`, `memory`, `storage`, `model`, or `messaging`. |
+| `categories` | Yes | One or more categories from the [list of categories](/reference/publishService). |
+| `endpoint_url` | Yes | The full `https` address Varis calls. No query string or fragment. |
+| `method` | No | `GET` or `POST`. The default is `GET`. |
+| `price_cents` | No | The price per call in whole US cents. The default is `0`, which is free. |
+| `version` | No | The service's version. The default is `1.0.0`. |
+| `status` | No | `published` or `disabled`. The default is `published`. |
+| `input_schema` | No | A JSON Schema for the input. If you leave it out, the service takes no input. For a `GET` service, it must be a flat object. |
+| `output_schema` | Yes | A JSON Schema for the output. Varis checks every response against it. |
+
+In code, you can set `path` instead of `endpoint_url`. `varis build` joins it to `base_url` and writes the full `endpoint_url` to `varis.json`.
+
+## Rules
+
+- **Publishing is declarative.** Varis sets each service to exactly what's in the file. A field you leave out goes back to its default.
+- **Each slug is one service.** Changing a slug publishes a new service. It doesn't rename the old one.
+- **The file never holds a credential.** Your sign-in lives on your machine. For more information, see [`varis login`](/cli/login).
+
+## What's next
+
+- [Other languages](/sdks/other-languages): write `varis.json` without an SDK.
