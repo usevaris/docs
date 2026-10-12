@@ -1,6 +1,61 @@
 ---
 title: varis init
-description: Set up a project to publish services.
+description: Connect a project to a Varis owner, set its addresses, and point coding agents to the SDK docs.
 ---
 
-{/* Covers: varis init. */}
+`varis init` sets up a project for Varis. It creates `varis.json`, connects the project to an owner, and injects a note into your `AGENTS.md` file.
+
+<Callout>
+If your project doesn't have an existing `AGENTS.md` file, `varis init` creates one to guide any coding agent that contributes to your project.
+</Callout>
+
+You don't have to run it yourself. `varis publish` runs it the first time. Run it directly when you want to change a setting.
+
+## Set up a project
+
+From your project folder, run:
+
+```bash
+varis init
+```
+
+The CLI does the following:
+
+1. Signs you in, if your machine isn't signed in yet.
+1. Asks which owner the project publishes as, but only if you're connected to more than one. Otherwise, it defaults to the only owner you're connected to.
+1. Creates `varis.json` with your owner's ID.
+1. Adds a short Varis section to `AGENTS.md`, and creates the file if it doesn't exist.
+1. Makes sure `CLAUDE.md` includes `@AGENTS.md`, so Claude Code reads it too. If you use a different coding agent, point them to the `AGENTS.md` file to prevent mis-implementation by your agents.
+
+`varis.json`, `AGENTS.md`, and `CLAUDE.md` are safe to commit to version control.
+
+## Options
+
+| Option | What it does |
+| --- | --- |
+| `--owner <id>` | Publishes as this owner instead of asking. Use it when there's no terminal to answer a prompt. |
+| `--base-url <url>` | Sets your production address, such as `https://api.example.com`. Varis joins each service's `path` to it. It must use `https`. |
+| `--test-base-url <url>` | Sets where `varis test` sends requests, such as `http://localhost:3000`. It's never sent when you publish. |
+
+For example:
+
+```bash
+varis init --base-url https://api.example.com --test-base-url http://localhost:3000
+```
+
+For how `base_url` and `path` work together, see [Publish a service](/publish/create#endpoint-address).
+
+## Change a setting
+
+Run `varis init` again with the option you want to change. It keeps your services and every setting you don't pass.
+
+## The notes for coding agents
+
+The Varis section in `AGENTS.md` tells coding agents, such as Claude Code, Cursor, and Codex, where to find the SDK's instructions in `node_modules/@usevaris/sdk/docs/agents.md`. With it, an agent in your project can declare and verify Varis services without reading these docs.
+
+The CLI only ever changes the text between the Varis markers in `AGENTS.md`. The rest of the file is yours. Leave the Varis markers and its content as is. 
+
+## What's next
+
+- [Build `varis.json` from your code](/cli/build).
+- [`varis.json` reference](/cli/varis-json).
