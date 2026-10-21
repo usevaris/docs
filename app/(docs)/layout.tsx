@@ -3,8 +3,10 @@ import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { getLayoutTabs } from "fumadocs-ui/layouts/shared";
 import type * as PageTree from "fumadocs-core/page-tree";
 import { MethodBadge } from "@/components/method-badge";
+import { DashboardLink } from "@/components/dashboard-link";
+import { Logo } from "@/components/logo";
 import { SectionSwitcher } from "@/components/section-switcher";
-import { appName, githubUrl } from "@/lib/shared";
+import { githubUrl } from "@/lib/shared";
 
 export default function Layout({ children }: LayoutProps<"/">) {
   const tree = source.getPageTree();
@@ -15,12 +17,16 @@ export default function Layout({ children }: LayoutProps<"/">) {
     <DocsLayout
       tree={sidebarTree(tree)}
       nav={{
-        title: (
-          <span key="title" className="font-heading text-lg font-bold">
-            {appName}
-          </span>
-        ),
+        title: <Logo key="title" />,
         url: "/",
+        // Below md, the Dashboard button in Fumadocs' header. From md up the
+        // panel's topbar has its own, and global.css hides this copy where
+        // Fumadocs also renders it, in the sidebar.
+        children: (
+          <div key="dashboard" className="docs-dashboard-link flex justify-end pe-1">
+            <DashboardLink />
+          </div>
+        ),
       }}
       githubUrl={githubUrl}
       // The section switcher replaces Fumadocs' dropdown. The sidebar still
@@ -31,7 +37,7 @@ export default function Layout({ children }: LayoutProps<"/">) {
       // search, GitHub, and the theme switch in its topbar, and global.css
       // hides the sidebar's copies. Below md they stay in Fumadocs' header
       // and drawer.
-      themeSwitch={{ enabled: true }}
+      themeSwitch={{ enabled: true, mode: "light-dark-system" }}
     >
       {children}
     </DocsLayout>

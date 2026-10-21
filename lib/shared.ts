@@ -2,6 +2,11 @@ export const appName = 'Varis Docs';
 export const siteUrl = 'https://usevaris.com';
 export const githubUrl = 'https://github.com/usevaris/docs';
 
+// The Varis app, on the same domain but outside the docs zone, so a plain
+// link rather than a Next <Link>, which would add basePath. Signed-out
+// readers land on sign-in.
+export const dashboardUrl = `${siteUrl}/dashboard`;
+
 // The docs are a zone of usevaris.com: the main app rewrites /docs and
 // /docs/* to this app, so every route here lives under basePath. Next adds
 // basePath to <Link> and router paths on its own; anything else fetched by

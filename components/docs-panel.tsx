@@ -5,11 +5,12 @@ import { Breadcrumb } from 'fumadocs-ui/layouts/docs/page/slots/breadcrumb';
 import { FullSearchTrigger } from 'fumadocs-ui/layouts/shared/slots/search-trigger';
 import { ThemeSwitch } from 'fumadocs-ui/layouts/shared/slots/theme-switch';
 import { githubUrl } from '@/lib/shared';
+import { DashboardLink } from './dashboard-link';
 
 /**
  * The raised panel that holds a page, beside the sidebar: a fixed height, with
- * a topbar (the sidebar toggle, the breadcrumb, search, GitHub, and the
- * theme switch) laid over
+ * a topbar (the sidebar toggle, the breadcrumb, search, a button to the
+ * Varis dashboard, GitHub, and the theme switch) laid over
  * #docs-scroll, where the page scrolls and slides under the topbar.
  * global.css lays it out and draws it. Below md it dissolves into Fumadocs'
  * own layout, which has its own header.
@@ -24,10 +25,12 @@ export function DocsPanel({ children }: { children: ReactNode }) {
         <Breadcrumb includePage className="min-w-0" />
         <div className="ms-auto flex items-center gap-4">
           <FullSearchTrigger hideIfDisabled className="w-52 py-1 text-[0.8125rem]" />
+          <DashboardLink />
           <a href={githubUrl} aria-label="GitHub" className={iconButton}>
             <GitHubIcon />
           </a>
-          <ThemeSwitch className="p-0.5 *:size-5 *:p-1" />
+          {/* Light, dark, or the system setting, which is the default. */}
+          <ThemeSwitch mode="light-dark-system" className="p-0.5 *:size-5 *:p-1" />
         </div>
       </header>
       <div id="docs-scroll">{children}</div>
