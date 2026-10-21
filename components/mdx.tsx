@@ -54,7 +54,7 @@ function Tabs(props: ComponentProps<typeof BaseTabs>) {
   return (
     <BaseTabs
       {...props}
-      className="overflow-visible rounded-none border-0 bg-transparent [&>[role=tablist]]:rounded-xl [&>[role=tablist]]:border [&>[role=tablist]]:bg-fd-secondary"
+      className="overflow-visible rounded-none border-0 bg-transparent [&>[role=tablist]]:border [&>[role=tablist]]:bg-fd-secondary"
     />
   );
 }
@@ -68,8 +68,8 @@ function Tab(props: ComponentProps<typeof BaseTab>) {
   );
 }
 
-// A link into the API reference ends in a blue API pill, styled like the
-// POST method badge (components/method-badge.tsx).
+// A link into the API reference ends in a small API badge, in the info
+// colour of the POST method badge (components/method-badge.tsx).
 export function Link({ href, children, ...props }: ComponentProps<typeof BaseLink>) {
   if (!href?.startsWith('/reference/')) {
     return <BaseLink href={href} {...props}>{children}</BaseLink>;
@@ -78,7 +78,7 @@ export function Link({ href, children, ...props }: ComponentProps<typeof BaseLin
   return (
     <BaseLink href={href} {...props}>
       {children}
-      <span className="ms-1.5 inline-flex items-center rounded-md border border-blue-600/40 px-1 align-[0.1em] font-mono text-[0.625rem] leading-4 font-semibold text-blue-700 dark:border-blue-400/40 dark:text-blue-400">
+      <span className="ms-1.5 inline-flex items-center border border-fd-info/40 px-1 align-[0.1em] text-[0.625rem] leading-4 font-semibold text-fd-info">
         API
       </span>
     </BaseLink>

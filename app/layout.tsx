@@ -1,26 +1,21 @@
 import { RootProvider } from 'fumadocs-ui/provider/next';
 import './global.css';
-import { Ubuntu, Ubuntu_Mono, Ubuntu_Sans } from 'next/font/google';
+import { Geologica, JetBrains_Mono } from 'next/font/google';
 import type { Metadata } from 'next';
 import { appName, siteUrl, withBasePath } from '@/lib/shared';
 
-// The main app's faces: Ubuntu for headings, Ubuntu Sans for body text,
-// Ubuntu Mono for code. global.css maps them to font-heading, font-sans, and
-// font-mono.
-const ubuntu = Ubuntu({
-  variable: '--font-ubuntu',
-  weight: ['400', '500', '700'],
+// The brand's faces, as in the main app. Geologica for all text, set sharp
+// through its SHRP axis (global.css), so that axis ships with it. JetBrains
+// Mono for code only. global.css maps them to font-sans and font-mono.
+const geologica = Geologica({
+  variable: '--font-geologica',
   subsets: ['latin'],
+  axes: ['SHRP'],
 });
 
-const ubuntuSans = Ubuntu_Sans({
-  variable: '--font-ubuntu-sans',
-  subsets: ['latin'],
-});
-
-const ubuntuMono = Ubuntu_Mono({
-  variable: '--font-ubuntu-mono',
-  weight: ['400', '700'],
+const jetBrainsMono = JetBrains_Mono({
+  variable: '--font-jetbrains-mono',
+  weight: ['400', '500'],
   subsets: ['latin'],
 });
 
@@ -33,7 +28,7 @@ export default function Layout({ children }: LayoutProps<'/'>) {
   return (
     <html
       lang="en"
-      className={`${ubuntu.variable} ${ubuntuSans.variable} ${ubuntuMono.variable} antialiased`}
+      className={`${geologica.variable} ${jetBrainsMono.variable} antialiased`}
       suppressHydrationWarning
     >
       <body className="flex flex-col min-h-screen">

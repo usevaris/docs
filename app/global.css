@@ -6,60 +6,126 @@
 /* ---------------------------------------------------------------------------
    Varis theme
 
-   The main app's colours on two layers: the page surface, where the sidebar
-   sits, and the panel, the raised container that holds the content.
-   Fumadocs sets dark mode with a .dark class, which follows the system.
+   The brand's colours (.brand/03-tokens in the varis repository) on two
+   layers: the page surface, where the sidebar sits, and the panel, the
+   bordered container that holds the content. Fumadocs sets dark mode with a
+   .dark class, which follows the system.
+
+   Orange is used sparingly, as the old blue was: the Dashboard button and
+   API field names. Everything else, links and the current page included,
+   stays graphite, so the page reads quietly. Orange text on a light
+   surface is orange 700, never signal orange.
    --------------------------------------------------------------------------- */
 :root {
-  --surface: #f5f5f5;
+  --surface: #f2f2f0;
   --panel: #ffffff;
-  --fg: #171717;
-  --line: #eaeaea;
-  --line-strong: #dadada;
-  /* The one chromatic colour, as in the main app: API field names. */
-  --accent: #2563eb;
-  /* The panel's glow: the main app's modal aurora, held still. */
-  --glow-opacity: 0.08;
+  --fg: #15140f;
+  --muted: #6a6862;
+  --line: #e4e3df;
+  --line-strong: #cbc9c3;
+  --brand: #ff5b14;
+  --brand-hover: #e2480a;
+  --on-brand: #15140f;
+  /* Orange for text, used only for API field names. */
+  --accent: #b23807;
 
   --color-fd-background: var(--surface);
   --color-fd-foreground: var(--fg);
+  --color-fd-muted: var(--surface);
+  --color-fd-muted-foreground: var(--muted);
   --color-fd-card: var(--panel);
+  --color-fd-card-foreground: var(--fg);
   --color-fd-popover: var(--panel);
+  --color-fd-popover-foreground: var(--fg);
   --color-fd-border: var(--line);
+  --color-fd-primary: var(--fg);
+  --color-fd-primary-foreground: var(--panel);
+  --color-fd-secondary: var(--surface);
+  --color-fd-secondary-foreground: var(--fg);
+  --color-fd-accent: color-mix(in srgb, var(--fg) 6%, transparent);
+  --color-fd-accent-foreground: var(--fg);
+  --color-fd-ring: var(--line-strong);
+  /* Callouts in the brand's status colours, which keep clear of orange.
+     An idea keeps Fumadocs' own colour. */
+  --color-fd-info: #2563eb;
+  --color-fd-warning: #946100;
+  --color-fd-error: #c81e3a;
+  --color-fd-success: #16834a;
 }
 
 .dark {
-  --surface: #0a0a0a;
-  --panel: #121212;
-  --fg: #ededed;
-  --line: #232323;
-  --line-strong: #373737;
-  --accent: #60a5fa;
-  --glow-opacity: 0.13;
+  --surface: #0d0c09;
+  --panel: #15140f;
+  --fg: #f2f2f0;
+  --muted: #a8a59e;
+  --line: #37352f;
+  --line-strong: #4f4d48;
+  --brand-hover: #ff7838;
+  --accent: #ff7838;
 
   --color-fd-background: var(--surface);
   --color-fd-foreground: var(--fg);
+  --color-fd-muted: #24231e;
+  --color-fd-muted-foreground: var(--muted);
   --color-fd-card: var(--panel);
+  --color-fd-card-foreground: var(--fg);
   --color-fd-popover: var(--panel);
+  --color-fd-popover-foreground: var(--fg);
   --color-fd-border: var(--line);
+  --color-fd-primary: var(--fg);
+  --color-fd-primary-foreground: var(--panel);
+  --color-fd-secondary: #24231e;
+  --color-fd-secondary-foreground: var(--fg);
+  --color-fd-accent: color-mix(in srgb, var(--fg) 8%, transparent);
+  --color-fd-accent-foreground: var(--fg);
+  --color-fd-ring: var(--line-strong);
+  --color-fd-info: #6b9bff;
+  --color-fd-warning: #f5b83d;
+  --color-fd-error: #ff5c76;
+  --color-fd-success: #3dd68c;
 }
 
 @theme inline {
-  --font-sans: var(--font-ubuntu-sans);
-  --font-mono: var(--font-ubuntu-mono);
-  --font-heading: var(--font-ubuntu);
+  /* Geologica for all text, JetBrains Mono for code only. */
+  --font-sans: var(--font-geologica);
+  --font-mono: var(--font-jetbrains-mono);
+
+  /* Geologica runs a step heavier than its numbers, so each weight is set
+     one step lighter, as in the main app: body text at 300 stays quieter
+     than the headings. */
+  --font-weight-normal: 300;
+  --font-weight-medium: 400;
+  --font-weight-semibold: 500;
+  --font-weight-bold: 600;
+
+  /* Square corners everywhere, Fumadocs' own components included: they
+     take their radii from these. */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
 }
 
-/* Headings in Ubuntu, as in the main app. In the base layer, so a font-*
-   utility on a heading still wins. */
-@layer base {
-  h1,
-  h2,
-  h3,
-  h4 {
-    font-family:
-      var(--font-heading), var(--font-sans), sans-serif;
-  }
+/* All text at sharpness 100, so every stroke ends in a clean cut. Unlayered,
+   so it beats the typography plugin's heavier headings and bold. */
+body {
+  font-weight: 300;
+  font-variation-settings: "SHRP" 100;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 500;
+}
+
+.prose :is(strong, b, dt, thead th) {
+  font-weight: 400;
 }
 
 /* Below md the sidebar is a drawer, so the page is one layer: the panel. */
@@ -73,17 +139,16 @@
 /* ---------------------------------------------------------------------------
    Sidebar text
 
-   Fumadocs draws inactive items in its muted grey, which reads faint,
-   most of all in light mode. Inside the sidebar that grey is darkened, so
-   hover and the other states built on it still work. The current page is
-   semi-bold as well as tinted.
+   Inactive items in the brand's muted text, a step darker inside the
+   sidebar so they don't read faint. The current page is in full graphite
+   and a heavier weight.
    --------------------------------------------------------------------------- */
 #nd-sidebar {
-  --color-fd-muted-foreground: color-mix(in srgb, var(--fg) 90%, var(--surface));
+  --color-fd-muted-foreground: color-mix(in srgb, var(--fg) 85%, var(--surface));
 }
 
 #nd-sidebar [data-active='true'] {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* Section headings (meta.json separators, drawn as a p) sit at the items'
@@ -92,59 +157,32 @@
 #nd-sidebar p {
   padding-inline-start: 0 !important;
   font-size: 0.6875rem;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--fg) 60%, var(--surface));
+  color: var(--muted);
 }
 
-/* ---------------------------------------------------------------------------
-   Section switcher aurora
-
-   The main app's card aurora: a soft, slowly drifting wash of its four hues
-   behind the switcher while it's open, fading in and out with it.
-   --------------------------------------------------------------------------- */
-.switcher-aurora {
-  position: absolute;
-  inset: -14px;
-  z-index: -1;
-  border-radius: 24px;
-  pointer-events: none;
-  background:
-    radial-gradient(42% 52% at 18% 28%, hsl(217 91% 60% / 0.7), transparent 70%),
-    radial-gradient(46% 56% at 82% 22%, hsl(268 85% 66% / 0.6), transparent 70%),
-    radial-gradient(52% 50% at 64% 86%, hsl(174 78% 48% / 0.5), transparent 70%),
-    radial-gradient(38% 46% at 14% 84%, hsl(328 85% 64% / 0.45), transparent 70%);
-  filter: blur(20px);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  animation: aurora-drift 16s ease-in-out infinite alternate;
+/* The Dashboard button renders in Fumadocs' header and in the sidebar's
+   title row. The header keeps it; the sidebar already has the topbar's. */
+#nd-sidebar .docs-dashboard-link {
+  display: none;
 }
 
-.switcher-aurora[data-open='true'] {
-  opacity: 0.22;
+/* In the phone header, the button follows search, as in the topbar: the
+   title pushes the rest right, and the button's slot moves after the
+   search icon, before the menu. */
+#nd-subnav > :first-child {
+  margin-inline-end: auto;
 }
 
-.dark .switcher-aurora[data-open='true'] {
-  opacity: 0.36;
+#nd-subnav > :has(> .docs-dashboard-link) {
+  flex: none;
+  order: 1;
 }
 
-@keyframes aurora-drift {
-  0% {
-    transform: translate(-2%, -1%) rotate(0deg) scale(1);
-  }
-  50% {
-    transform: translate(2%, 1.5%) rotate(7deg) scale(1.05);
-  }
-  100% {
-    transform: translate(-1%, 2%) rotate(-5deg) scale(0.98);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .switcher-aurora {
-    animation: none;
-  }
+#nd-subnav > :last-child {
+  order: 2;
 }
 
 /* ---------------------------------------------------------------------------
@@ -193,7 +231,7 @@
   }
 
   /* The sidebar's content stops short of its right edge, leaving room
-     before the panel's glow. */
+     before the panel. */
   #nd-sidebar:not([data-collapsed="true"]) {
     align-items: flex-start;
     background-color: transparent;
@@ -243,31 +281,10 @@
     display: block;
     grid-area: panel;
     height: var(--fd-docs-height);
-    /* The left margin keeps the glow off the sidebar. */
     margin: 0.75rem;
     overflow: hidden;
-    border-radius: 1rem;
-    /* The spectrum border from the main app's modals: a conic gradient
-       showing through a transparent border, under the panel's fill. */
-    border: 1px solid transparent;
-    background:
-      linear-gradient(var(--panel), var(--panel)) padding-box,
-      conic-gradient(
-      from 200deg,
-      hsl(217 91% 60% / 0.55),
-      hsl(268 85% 66% / 0.55),
-      hsl(328 85% 64% / 0.55),
-      hsl(38 92% 58% / 0.55),
-      hsl(174 78% 48% / 0.55),
-      hsl(217 91% 60% / 0.55)
-    ) border-box;
-    /* The aurora's four hues, one from each corner, held close to the
-       panel. */
-    box-shadow:
-      -6px -6px 32px -12px hsl(217 91% 60% / var(--glow-opacity)),
-      6px -6px 32px -12px hsl(268 85% 66% / var(--glow-opacity)),
-      6px 6px 32px -12px hsl(174 78% 48% / var(--glow-opacity)),
-      -6px 6px 32px -12px hsl(328 85% 64% / var(--glow-opacity));
+    border: 1px solid var(--line);
+    background: var(--panel);
   }
 
   /* Inset from the panel's edge, so the scrollbar runs inside the panel
@@ -425,25 +442,21 @@
 /* ---------------------------------------------------------------------------
    Code
 
-   Code blocks sit on their own shade, a step off the panel, so they read
-   as blocks without leaning on the border. Their text is a pixel over
-   Fumadocs' 13px, with looser lines. Inline code in guide pages takes the
-   violet of the panel's aurora: a tinted chip with a faint rim. Reference
-   pages keep their own styles: their field names and paths aren't inline
-   code.
+   Code blocks sit on the off-white page shade, a step off the panel, so
+   they read as blocks without leaning on the border. Their text is a pixel
+   over Fumadocs' 13px, with looser lines. Inline code in guide pages is a
+   quiet chip in the code face: graphite on a faint tint, so the page's one
+   orange stays with links. Reference pages keep their own styles: their
+   field names and paths aren't inline code.
    --------------------------------------------------------------------------- */
 :root {
-  --code-bg: #f7f7f8;
-  --code-inline-bg: hsl(268 85% 66% / 0.08);
-  --code-inline-border: hsl(268 85% 66% / 0.25);
-  --code-inline-fg: hsl(268 55% 42%);
+  --code-bg: #f2f2f0;
+  --code-inline-bg: color-mix(in srgb, var(--fg) 5%, transparent);
+  --code-inline-border: var(--line);
 }
 
 .dark {
-  --code-bg: #1a1a1c;
-  --code-inline-bg: hsl(268 85% 66% / 0.12);
-  --code-inline-border: hsl(268 85% 66% / 0.3);
-  --code-inline-fg: hsl(268 90% 82%);
+  --code-bg: #0d0c09;
 }
 
 figure.shiki:not(.not-fumadocs-codeblock *) {
@@ -458,9 +471,8 @@ figure.shiki:not(.not-fumadocs-codeblock *) > .fd-scroll-container {
 .guide-body :not(pre) > code {
   padding: 0.125em 0.375em;
   border-color: var(--code-inline-border);
-  border-radius: 0.375rem;
   background: var(--code-inline-bg);
-  color: var(--code-inline-fg);
+  color: var(--fg);
   font-size: 0.875em;
 }
 

@@ -83,7 +83,7 @@ function Endpoint({ method, path }: { method: string; path: string }) {
   const [copied, setCopied] = useState(false);
 
   return (
-    <div className="mb-8 flex items-center gap-3 rounded-lg border px-3 py-2.5">
+    <div className="mb-8 flex items-center gap-3 border px-3 py-2.5">
       <MethodBadge method={method} />
       <code className="min-w-0 flex-1 truncate font-mono text-[0.9375rem]">{path}</code>
       <button
@@ -173,7 +173,7 @@ function Responses({ operation }: { operation: Operation }) {
                 type="button"
                 onClick={() => setStatus(s)}
                 aria-pressed={s === status}
-                className={`rounded-md px-1.5 font-mono text-[0.8125rem] transition-colors ${
+                className={`px-1.5 font-mono text-[0.8125rem] transition-colors ${
                   s === status
                     ? 'bg-fd-secondary text-fd-foreground'
                     : 'text-fd-muted-foreground hover:text-fd-foreground'
@@ -303,7 +303,7 @@ function Options({ values }: { values: unknown[] }) {
             type="button"
             aria-expanded={all}
             onClick={() => setAll((a) => !a)}
-            className="inline-flex items-center gap-1 rounded-md border bg-fd-secondary px-1.5 py-0.5 text-xs text-fd-secondary-foreground transition-colors hover:bg-fd-accent"
+            className="inline-flex items-center gap-1 border bg-fd-secondary px-1.5 py-0.5 text-xs text-fd-secondary-foreground transition-colors hover:bg-fd-accent"
           >
             {all ? 'Show less' : 'Show all'}
             <ChevronDown className={`size-3.5 transition-transform ${all ? 'rotate-180' : ''}`} />
@@ -317,9 +317,9 @@ function Options({ values }: { values: unknown[] }) {
 function Pill({ children, tone }: { children: ReactNode; tone?: 'required' }) {
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2 py-0.5 font-mono text-[0.8125rem] leading-5 ${
+      className={`inline-flex items-center px-2 py-0.5 font-mono text-[0.8125rem] leading-5 ${
         tone === 'required'
-          ? 'bg-red-500/10 text-red-600 dark:text-red-400'
+          ? 'bg-fd-error/10 text-fd-error'
           : 'bg-fd-secondary text-fd-secondary-foreground'
       }`}
     >
@@ -351,7 +351,7 @@ function inline(text: string): ReactNode[] {
   return text.split(/(`[^`]+`|\[[^\]]+\]\([^)]+\))/g).map((part, i) => {
     if (part.startsWith('`')) {
       return (
-        <code key={i} className="rounded bg-fd-secondary px-1 py-0.5 font-mono text-[0.875em]">
+        <code key={i} className="bg-fd-secondary px-1 py-0.5 font-mono text-[0.875em]">
           {part.slice(1, -1)}
         </code>
       );

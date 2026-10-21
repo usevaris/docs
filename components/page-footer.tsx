@@ -31,5 +31,5 @@ export function PageFooter({ previous, next }: { previous?: PageTree.Item; next?
 }
 
 const card =
-  'flex items-center gap-3 rounded-xl border px-3 py-4 text-sm font-medium text-fd-foreground transition-colors hover:bg-fd-accent/50';
+  'flex items-center gap-3 border px-3 py-4 text-sm font-medium text-fd-foreground transition-colors hover:bg-fd-accent/50';
 const arrow = 'size-4 shrink-0 text-fd-muted-foreground';

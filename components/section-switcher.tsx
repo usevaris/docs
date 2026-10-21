@@ -48,12 +48,8 @@ export function SectionSwitcher({ sections }: { sections: Section[] }) {
   if (!current) return null;
 
   return (
-    // Two boxes, as in the main app's AuroraCard: the outer one isolates, so
-    // the glow sits behind the card but in front of the sidebar. The card is
-    // opaque, so the glow only shows around it.
-    <div ref={ref} className="relative isolate">
-      <div aria-hidden="true" className="switcher-aurora" data-open={open} />
-      <div className="rounded-lg border border-(--line-strong) bg-[color-mix(in_srgb,var(--fg)_3%,var(--surface))] p-0.5 text-sm">
+    <div ref={ref}>
+      <div className="border border-(--line-strong) bg-[color-mix(in_srgb,var(--fg)_3%,var(--surface))] p-0.5 text-sm">
         <button
           type="button"
           aria-expanded={open}
@@ -67,7 +63,7 @@ export function SectionSwitcher({ sections }: { sections: Section[] }) {
         {/* Animating grid rows from 0fr to 1fr grows the list to its own
             height, so the sidebar below slides rather than jumps. */}
         <div
-          className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+          className="grid transition-[grid-template-rows] duration-240 ease-[cubic-bezier(0.2,0,0,1)]"
           style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
         >
           <div id="docs-sections" className="min-h-0 overflow-hidden" inert={!open}>
@@ -91,5 +87,5 @@ export function SectionSwitcher({ sections }: { sections: Section[] }) {
 }
 
 function row(extra: string) {
-  return `flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pe-2 ps-3 text-start transition-colors hover:bg-fd-accent/50 ${extra}`;
+  return `flex w-full min-w-0 items-center gap-2 py-1.5 pe-2 ps-3 text-start transition-colors hover:bg-fd-accent/50 ${extra}`;
 }
