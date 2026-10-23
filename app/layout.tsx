@@ -6,7 +6,9 @@ import { appName, siteUrl, withBasePath } from '@/lib/shared';
 
 // The brand's faces, as in the main app. Geologica for all text, set sharp
 // through its SHRP axis (global.css), so that axis ships with it. JetBrains
-// Mono for code only. global.css maps them to font-sans and font-mono.
+// Mono for code only. global.css maps them to font-sans and font-mono. Both
+// load as variable fonts: static weights can come back from Google at
+// /l/font?kit=...&skey=... URLs, which break Turbopack's font loader.
 const geologica = Geologica({
   variable: '--font-geologica',
   subsets: ['latin'],
@@ -15,7 +17,6 @@ const geologica = Geologica({
 
 const jetBrainsMono = JetBrains_Mono({
   variable: '--font-jetbrains-mono',
-  weight: ['400', '500'],
   subsets: ['latin'],
 });
 
