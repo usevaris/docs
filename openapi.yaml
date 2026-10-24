@@ -564,8 +564,10 @@ paths:
       operationId: getService
       summary: Get a service
       description: |
-        Published services are readable by any credential. `endpoint_url` is
-        returned only to the service's own owner.
+        Published services are readable by any credential. An agent, or any
+        caller that doesn't own the service, gets it as discovery lists it,
+        with `price_usd`. The service's own owner gets it as they publish it,
+        with `price_cents`, `endpoint_url`, and `method`.
       tags: [Services]
       security:
         - agentKey: []
@@ -580,9 +582,71 @@ paths:
           content:
             application/json:
               schema:
+                # Listed first: agents are this endpoint's usual readers, and
+                # docs renderers sample the first branch.
                 oneOf:
-                  - $ref: "#/components/schemas/OwnedService"
                   - $ref: "#/components/schemas/ListedService"
+                  - $ref: "#/components/schemas/OwnedService"
+              examples:
+                listed:
+                  summary: Read by an agent
+                  description: |
+                    Anyone but the owner. `price_usd` is the charge, the
+                    3 cent price plus the 5% Varis fee.
+                  value:
+                    id: var_serv_ydZfZ9gKKe1tQe
+                    slug: weather-with-rainfall
+                    name: Weather with rainfall data
+                    description: Current conditions and rainfall for a city.
+                    instructions: null
+                    service_type: data
+                    version: "1.0.0"
+                    status: published
+                    categories: [climate]
+                    input_schema:
+                      type: object
+                      properties:
+                        city: { type: string }
+                      required: [city]
+                    output_schema:
+                      type: object
+                      properties:
+                        temp_c: { type: number }
+                        rainfall_mm: { type: number }
+                    created_at: "2026-10-01T09:00:00Z"
+                    updated_at: "2026-10-01T09:00:00Z"
+                    provider_name: National Geographic
+                    price_usd: "0.0315"
+                owned:
+                  summary: Read by its owner
+                  description: |
+                    The service as its owner publishes it, with their own
+                    price in `price_cents`, `endpoint_url`, and `method`.
+                  value:
+                    id: var_serv_ydZfZ9gKKe1tQe
+                    slug: weather-with-rainfall
+                    name: Weather with rainfall data
+                    description: Current conditions and rainfall for a city.
+                    instructions: null
+                    service_type: data
+                    version: "1.0.0"
+                    status: published
+                    categories: [climate]
+                    input_schema:
+                      type: object
+                      properties:
+                        city: { type: string }
+                      required: [city]
+                    output_schema:
+                      type: object
+                      properties:
+                        temp_c: { type: number }
+                        rainfall_mm: { type: number }
+                    created_at: "2026-10-01T09:00:00Z"
+                    updated_at: "2026-10-01T09:00:00Z"
+                    price_cents: 3
+                    endpoint_url: https://api.example.com/v1/weather
+                    method: GET
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
