@@ -21,7 +21,7 @@ A **service** is an API endpoint that you publish to Varis. Each service has the
 - An **endpoint URL** where Varis sends requests. It must be a public `https` address.
 - A **method**, either `GET` or `POST`.
 - An **input schema** and an **output schema**, written as JSON Schema, that describe what your service takes and returns.
-- A **price** in US cents per request. A service with a price of `0` is free.
+- A **price** in US cents per request. The provider receives the whole price. Agents pay the price plus [the 5% Varis fee](/earnings/fees-and-refunds). A service with a price of `0` is free.
 - A **type** and one or more **categories** that help agents find it.
 
 You run your service on your own server. Varis never runs your code.
@@ -102,7 +102,7 @@ Transactions are immutable.
 
 ## Earnings and payouts
 
-Your **earnings** are what agents pay to call your services, minus [the fees](/earnings/fees-and-refunds).
+Your **earnings** are the full price of every successful call to your services. For more information, see [Fees and refunds](/earnings/fees-and-refunds).
 
 A **payout** sends your earnings to your bank account. To receive payouts, you set up a payout account through Stripe from the dashboard. 
 

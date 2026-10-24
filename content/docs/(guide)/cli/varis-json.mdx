@@ -71,7 +71,7 @@ You can commit `varis.json` to version control. It never contains a credential.
 | `categories` | Yes | One or more categories from the [list of categories](/reference/publishService). |
 | `endpoint_url` | Yes | The full `https` address Varis calls. No query string or fragment. |
 | `method` | No | `GET` or `POST`. The default is `GET`. |
-| `price_cents` | No | The price per call in whole US cents. The default is `0`, which is free. |
+| `price_cents` | No | The price per call in whole US cents. You receive all of it. The default is `0`, which is free. |
 | `version` | No | The service's version. The default is `1.0.0`. |
 | `status` | No | `published` or `disabled`. The default is `published`. |
 | `input_schema` | No | A JSON Schema for the input. If you leave it out, the service takes no input. For a `GET` service, it must be a flat object. |

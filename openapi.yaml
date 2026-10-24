@@ -1380,9 +1380,9 @@ components:
     # The single-value enum on `code` gives generators something to
     # discriminate on, so a caller can narrow to this shape by checking it.
     #
-    # shortfall_credits is in CREDITS while prices are in cents, because a
-    # shortfall can land between cents: 150 credits is 1.5 cents, which no
-    # whole-cent field can express.
+    # shortfall_credits is in CREDITS while prices read in cents or dollars,
+    # because a shortfall can land between cents: 150 credits is 1.5 cents,
+    # which no whole-cent field can express.
     InsufficientFundsError:
       type: object
       required: [error, request_id]
