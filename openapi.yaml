@@ -399,7 +399,10 @@ paths:
               $ref: "#/components/schemas/ServiceCategory"
         - name: max_price_cents
           in: query
-          description: Exclude services priced above this, in US cents.
+          description: |
+            Exclude services that charge more than this per invocation, in US
+            cents. Compared against the charge, the price plus the Varis fee,
+            so a 3 cent service is excluded by `3` and included by `4`.
           schema:
             type: integer
             # Constraints. Generators emit them as runtime validation and docs
@@ -437,10 +440,10 @@ paths:
                 properties:
                   data:
                     type: array
-                    # Every element is a Service. This is where one $ref
+                    # Every element is a ListedService. This is where one $ref
                     # defines the shape of an entire list.
                     items:
-                      $ref: "#/components/schemas/Service"
+                      $ref: "#/components/schemas/ListedService"
                   next_cursor:
                     # A 3.1 union type. In 3.0 this was `nullable: true`, which
                     # no longer exists. Generators emit `string | null`.
@@ -570,11 +573,16 @@ paths:
           developerOwner: []
       responses:
         "200":
-          description: The service.
+          description: |
+            The service. Its owner reads it as they publish it, with
+            `price_cents`. Anyone else reads it as discovery lists it, with
+            `price_usd`.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Service"
+                oneOf:
+                  - $ref: "#/components/schemas/OwnedService"
+                  - $ref: "#/components/schemas/ListedService"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -613,7 +621,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Service"
+                $ref: "#/components/schemas/OwnedService"
         "400":
           description: The update is invalid.
           content:
@@ -1656,12 +1664,12 @@ components:
           type: integer
           minimum: 0
           description: |
-            Charged per request, in US cents. An integer, as with every
-            financial API. Defaults to 0, which makes the service free.
+            Your price per request, in US cents. An integer, as with every
+            financial API. Defaults to 0, which makes the service free. Agents
+            pay this plus the 5% Varis fee, and you receive all of it.
 
             Varis settles internally in credits at 100 credits per cent, which
-            is why fees and discounts on a one cent call still reconcile
-            exactly.
+            is why the fee on a one cent call still reconciles exactly.
           default: 0
           example: 3
         version:
@@ -1735,7 +1743,9 @@ components:
         price_cents:
           type: integer
           minimum: 0
-          description: In US cents. Takes effect on the next invocation.
+          description: |
+            Your price, in US cents. Takes effect on the next invocation.
+            Agents pay this plus the 5% Varis fee.
         version:
           type: string
         status:
@@ -1758,7 +1768,6 @@ components:
         - name
         - description
         - service_type
-        - price_cents
         - input_schema
         - output_schema
         - status
@@ -1788,10 +1797,6 @@ components:
           type: string
           description: The publishing owner's display name.
           example: National Geographic
-        price_cents:
-          type: integer
-          description: The price per invocation, in US cents.
-          example: 3
         version:
           type: string
           example: "1.0.0"
@@ -1829,13 +1834,49 @@ components:
           type: string
           format: date-time
 
-    PublishedService:
+    ListedService:
       description: |
-        A Service, plus whether this publish actually changed anything. The CLI
-        prints created, updated, or unchanged from the status code and this
-        flag together.
+        A service as an agent sees it: in discovery, and from
+        `GET /v1/services/{service_id}` for anyone but its owner.
       allOf:
         - $ref: "#/components/schemas/Service"
+        - type: object
+          required: [price_usd]
+          properties:
+            price_usd:
+              type: string
+              # A string, not a number: the charge can land between cents,
+              # and a JSON number would invite float arithmetic on money.
+              pattern: "^\\d+\\.(\\d{2}|\\d{4})$"
+              description: |
+                What one invocation charges, in US dollars, as an exact
+                decimal string: the service's price plus the Varis fee of 5%.
+                The invocation is charged exactly this. Two decimals, or four
+                when the charge falls between cents.
+              example: "0.0315"
+
+    OwnedService:
+      description: |
+        A service as its owner publishes it, with the owner's own price.
+      allOf:
+        - $ref: "#/components/schemas/Service"
+        - type: object
+          required: [price_cents]
+          properties:
+            price_cents:
+              type: integer
+              description: |
+                Your price per invocation, in US cents. Agents pay this plus
+                the 5% Varis fee; you receive all of it.
+              example: 3
+
+    PublishedService:
+      description: |
+        An OwnedService, plus whether this publish actually changed anything.
+        The CLI prints created, updated, or unchanged from the status code and
+        this flag together.
+      allOf:
+        - $ref: "#/components/schemas/OwnedService"
         - type: object
           required: [unchanged]
           properties:
