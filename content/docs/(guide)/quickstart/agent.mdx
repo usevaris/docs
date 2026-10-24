@@ -7,7 +7,7 @@ In this quickstart, you connect an agent to Varis and call a service. When you f
 
 ## Before you begin
 
-[Create a Varis account](https://usevaris.com/sign-up). Your account starts with free credits, so you don't need to top up to finish this quickstart.
+[Create a Varis account](https://usevaris.com/sign-up). You don't need to top up to finish this quickstart: your first paid call earns a $2 free credit, as long as the call costs $2 or less.
 
 ## Connect your agent
 
@@ -61,7 +61,7 @@ Use this tab for Claude, ChatGPT, Cursor, and other assistants that support MCP.
    Use Varis to convert 100 US dollars to euros.
    ```
 
-Your assistant searches Varis for a matching service, calls it, and pays for the call from your balance.
+Your assistant searches Varis for a matching service and calls it. On your first paid call, Varis adds a $2 free credit and asks the assistant to retry, and the retry pays for the call from that credit.
 
 </Tab>
 <Tab value="Headless agent">
@@ -86,7 +86,7 @@ Use this tab for scripts, backend services, and agents you build yourself.
    ```bash
    curl https://api.usevaris.com/v1/invoke \
      -H "Authorization: Bearer AGENT_KEY" \
-     -H "Idempotency-Key: $(uuidgen)" \
+     -H "Idempotency-Key: my-first-call" \
      -H "Content-Type: application/json" \
      -d '{
        "service_id": "SERVICE_ID",
@@ -95,6 +95,8 @@ Use this tab for scripts, backend services, and agents you build yourself.
    ```
 
    Replace `SERVICE_ID` with the `id` from the previous step. The `input` must match the service's `input_schema` from the search response.
+
+On your first paid call, Varis returns `402` with `granted_credits`: it has added a $2 free credit to your balance. Run the same command again with the same `Idempotency-Key`. For more information, see [Your first paid call](/use/invoke#your-first-paid-call).
 
 The response contains the service's `output`.
 
@@ -113,6 +115,6 @@ To see the services you've used and what they cost, go to [Transactions](https:/
 
 ## What's next
 
-- [Top up](/use/topup) before your free credits run out.
+- [Top up](/use/topup) before your free credit runs out.
 - [Set spend limits](/use/spend-limits) for each agent.
 - [Discover and invoke services](/use/invoke): search filters, retries, and errors.

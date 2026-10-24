@@ -79,7 +79,7 @@ Every error has the same shape:
 | `400` | `input_schema_violation` | No | Fix the input to match `input_schema`. `details` lists each problem. |
 | `400` | `invalid_request` | No | Fix the request, such as a missing `Idempotency-Key`. |
 | `401` | `unauthorized` | No | Check the agent key, and check that the agent isn't revoked. |
-| `402` | `insufficient_funds` | No | Show the `funding_url` to a person, and retry once they top up. |
+| `402` | `insufficient_funds` | No | Show the `funding_url` to a person, and retry once they top up. If the error has `granted_credits`, retry straight away. |
 | `403` | `forbidden` | No | The call is over the agent's spend limits. See [Spend limits](/use/spend-limits). |
 | `404` | `not_found` | No | The service doesn't exist. Search again. |
 | `409` | `service_not_invocable` | No | The service is disabled. Search for another one. |
@@ -99,6 +99,7 @@ If your balance can't cover a call, Varis returns `402` with a funding link:
   "error": {
     "code": "insufficient_funds",
     "message": "The balance does not cover this call.",
+    "shortfall_credits": 150,
     "funding_url": "https://usevaris.com/fund/t/abc123"
   },
   "request_id": "var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1"
@@ -108,6 +109,27 @@ If your balance can't cover a call, Varis returns `402` with a funding link:
 Show `funding_url` to a person exactly as it is. Anyone who opens it can top up your balance, without signing in. After they pay, retry the call with the same idempotency key.
 
 The link expires after 30 minutes. If it expires, the next retry returns a new one.
+
+### Your first paid call
+
+Each account gets a one-time $2 free credit for its first key action. If that action is a paid call your balance can't cover, and the call costs $2 or less, Varis adds the credit and returns the same `402` with `granted_credits`:
+
+```json
+{
+  "error": {
+    "code": "insufficient_funds",
+    "message": "The available balance is too low for this request. As this is your first paid invocation, we've added a $2.00 credit to your balance. Retry this invocation with the same idempotency key to complete the request. When the task is done, ask the account owner to top up using the funding_url below. It expires in 30 minutes.",
+    "shortfall_credits": 0,
+    "funding_url": "https://usevaris.com/fund/t/abc123",
+    "granted_credits": 20000
+  },
+  "request_id": "var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1"
+}
+```
+
+Retry the call straight away with the same idempotency key, and show the `funding_url` to a person once the task is done.
+
+A first call that costs more than $2 gets the plain `402` and no credit. Your first top-up adds the $2 instead.
 
 ## Limits on requests
 
