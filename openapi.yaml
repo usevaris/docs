@@ -262,6 +262,10 @@ paths:
             the shortfall and a short-lived funding link already scoped to the
             owner, so no re-authentication is needed. Retry with the same
             idempotency key once the balance is topped up.
+
+            On an owner's first paid call, the response also carries
+            `granted_credits`: Varis added a one-time $2 credit that covers
+            the call, so retry straight away.
           content:
             application/json:
               schema:
@@ -271,13 +275,32 @@ paths:
                 # neither branch evaluates the other's properties, and every
                 # field reads as unevaluated.
                 $ref: "#/components/schemas/InsufficientFundsError"
-              example:
-                error:
-                  code: insufficient_funds
-                  message: The balance does not cover this call.
-                  shortfall_credits: 150
-                  funding_url: https://usevaris.com/fund/t/abc123
-                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+              examples:
+                short:
+                  summary: The balance is short
+                  value:
+                    error:
+                      code: insufficient_funds
+                      message: The balance does not cover this call.
+                      shortfall_credits: 150
+                      funding_url: https://usevaris.com/fund/t/abc123
+                    request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+                first_paid_call:
+                  summary: A first paid call, with the free credit added
+                  value:
+                    error:
+                      code: insufficient_funds
+                      message: >-
+                        The available balance is too low for this request. As
+                        this is your first paid invocation, we've added a $2.00
+                        credit to your balance. Retry this invocation with the
+                        same idempotency key to complete the request. When the
+                        task is done, ask the account owner to top up using the
+                        funding_url below. It expires in 30 minutes.
+                      shortfall_credits: 0
+                      funding_url: https://usevaris.com/fund/t/abc123
+                      granted_credits: 20000
+                    request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
         "403":
           description: |
             The credential is valid but not permitted. Sending a developer API
@@ -1470,6 +1493,15 @@ components:
               # configured; docs tools display it.
               format: uri
               description: Short-lived, scoped to the owner.
+            granted_credits:
+              type: integer
+              description: |
+                Present only on an owner's first paid call: Varis has added
+                its one-time free credit, which covers this call. Retry
+                straight away with the same idempotency key; `shortfall_credits`
+                is `0`. Absent when the call costs more than the credit, which
+                then goes to the owner's first top-up instead.
+              example: 20000
         request_id:
           $ref: "#/components/schemas/RequestId"
 
