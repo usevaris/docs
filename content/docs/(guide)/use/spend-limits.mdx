@@ -11,7 +11,7 @@ Each agent has three settings:
 
 | Limit | What it does | Example |
 | --- | --- | --- |
-| **Per request** | The most the agent can pay for one call. Varis rejects a call to any service priced above it. | Set $0.50 so the agent can't call an expensive service by mistake. |
+| **Per request** | The most the agent can pay for one call. Varis rejects a call to any service whose `price_usd`, which includes the 5% fee, is above it. | Set $0.50 so the agent can't call an expensive service by mistake. |
 | **Per day** | The most the agent can spend in one day. | Set $20 so a loop in your code can't cost more than $20 a day. |
 | **Categories** | The kinds of services the agent can call. | Allow only `finance` and `forex` for a pricing bot. |
 

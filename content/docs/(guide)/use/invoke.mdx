@@ -18,7 +18,7 @@ curl "https://api.usevaris.com/v1/services?q=convert+currency&max_price_cents=5"
   -H "Authorization: Bearer $VARIS_AGENT_KEY"
 ```
 
-The response lists the matching services in `data`. Choose one by its `description`, `instructions`, `price_cents`, and `input_schema`, and then copy its `id`.
+The response lists the matching services in `data`. Choose one by its `description`, `instructions`, `price_usd`, and `input_schema`, and then copy its `id`. `price_usd` is what one call costs, including the 5% Varis fee, and `max_price_cents` filters on that same amount.
 
 For every parameter and response field, see [Search published services](/reference/searchServices).
 

@@ -1,26 +1,45 @@
 ---
 title: Fees and refunds
-description: Understand the Varis platform fee, who pays processing costs, and how refunds work for failed and reversed calls.
+description: Understand the Varis fee on calls, the payout fee, and how refunds work for failed and reversed calls.
 ---
 
 This page explains what Varis charges and when money goes back to the agent's owner.
 
-## The platform fee
+## The fee on calls
 
-Varis charges one fee: 10% of the price of every successful paid call. The provider keeps the other 90%.
+Agents pay a service's price plus 5%. The 5% is the Varis fee, and the provider keeps the whole price.
 
-- **Only successful calls carry a fee.** A failed call costs the agent's owner nothing and earns the provider nothing, so there's nothing to take a fee from.
+| Price per call | Varis fee | The agent's owner pays | The provider earns |
+| --- | --- | --- | --- |
+| $0.01 | $0.0005 | $0.0105 | $0.01 |
+| $0.10 | $0.005 | $0.105 | $0.10 |
+| $1.00 | $0.05 | $1.05 | $1.00 |
+
+- **Agents see the price with the fee included.** Search results, service details, and the MCP `search_services` tool all show `price_usd`, and a call is charged exactly that amount.
+- **Spend limits count the fee.** An agent with a per-call limit of $0.10 can't call a $0.10 service, because the call costs $0.105.
+- **Only successful calls are charged.** A failed call costs the agent's owner nothing and earns the provider nothing.
 - **Free services carry no fee.**
 
-Every earning shows the fee as its own line, so providers can check it against the price.
+Each call's transaction shows what the agent's owner paid, the Varis fee, and what the provider received.
+
+## The payout fee
+
+Each payout to a provider costs $3 plus 1% of the payout, taken from the transfer. Stripe sends only whole cents, so any fraction of a cent left after the fee stays in your earnings and goes out with your next payout.
+
+| Earnings paid out | Payout fee | You receive |
+| --- | --- | --- |
+| $25.00 | $3.25 | $21.75 |
+| $50.00 | $3.50 | $46.50 |
+| $200.00 | $5.00 | $195.00 |
+
+Your bank might also charge to receive an international payment.
 
 ## No other fees
 
 Varis doesn't charge providers or agent owners anything else.
 
-- **Card processing:** Varis bears the Stripe's fees on top-ups. A $10 top-up adds $10 to your balance.
-- **Discounts:** if Varis runs a discount or promotion, Varis pays for it.
-- **Payouts:** Varis doesn't charge for sending your earnings to your bank. Your bank might charge to receive an international payment.
+- **Top-ups:** a $10 top-up adds $10 to your balance.
+- **Discounts:** if Varis runs a discount or promotion, Varis pays for it out of its own fee, never out of the provider's price.
 
 ## Refunds for failed calls
 
@@ -43,8 +62,8 @@ Refunds go back to your Varis balance, not to your card. You can spend them on a
 
 Sometimes a call succeeds but shouldn't have been charged. In those cases, Varis can reverse the call after a review. A reversal does two things together:
 
-- Refunds the price to the agent owner's balance.
-- Takes back the provider's earning for that call, including the fee.
+- Refunds what the agent's owner paid, including the Varis fee, to their balance.
+- Takes back the provider's earning for that call.
 
 Each side sees a **Reversal** in **Transactions**, linked to the transaction it reverses. A reversal is final.
 
