@@ -47,11 +47,13 @@ You pay only for calls that return `200`.
 
 Every call needs an `Idempotency-Key` header. Use a new, unique value, such as a UUID, for each call you mean to make.
 
-If a call times out or your connection drops, retry it with the **same** key. Varis recognises the key and doesn't charge you twice:
+If your connection drops, retry the call with the **same** key. Varis recognises the key and doesn't charge you twice:
 
 - **If the first call is still running,** Varis returns `409` with `invocation_in_progress`. Wait, and then retry with the same key.
 - **If the first call failed,** Varis returns the same error again.
 - **If the first call succeeded,** Varis returns `200` with `"replayed": true`, but not the output. Keep the output from the first response if you need it.
+
+If a call times out, the service may still have finished. A retry with the same key won't run it again or charge twice, but can't return its output yet. A new key runs the service again and charges again.
 
 If you reuse a key for a different service, Varis returns `409` with `conflict`.
 
@@ -88,7 +90,7 @@ Every error has the same shape:
 | `429` | `rate_limited` | No | Wait for the number of seconds in `Retry-After`, and then retry. |
 | `502` | `provider_error` | No | The service failed. Retry with a new key, or choose another service. |
 | `502` | `schema_violation` | No | The service's output violates the I/O contract. Choose another service. |
-| `504` | `timeout` | No | The service took longer than 30 seconds. Retry with a new key, or choose another service. |
+| `504` | `timeout` | No | The service took longer than 30 seconds to answer, and may still have finished. A retry with the same key won't run it again or charge twice, but can't return its output yet. A new key runs the service again and charges again. |
 
 ### Insufficient funds
 

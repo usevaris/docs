@@ -80,7 +80,7 @@ A call fails if the service returns an error, times out, redirects, or returns a
 
 ### Idempotency keys
 
-An **idempotency key** is a unique value that an agent sends with a call. If a call times out and the agent retries it with the same key, Varis doesn't charge twice.
+An **idempotency key** is a unique value that an agent sends with a call. A retry with the same key never runs the call twice or charges twice. If a call times out, the service may still have finished. A retry with the same key won't run it again or charge twice, but can't return its output yet. A new key runs the service again and charges again.
 
 ### Signed requests
 
