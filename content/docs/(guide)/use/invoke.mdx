@@ -51,14 +51,14 @@ If your connection drops, retry the call with the **same** key. Varis recognises
 
 - **If the first call is still running,** Varis returns `409` with `invocation_in_progress`. Wait, and then retry with the same key.
 - **If the first call failed,** Varis returns the same error again.
-- **If the first call succeeded,** Varis returns `200` with `"replayed": true`, but not the output. Keep the output from the first response if you need it.
+- **If the first call succeeded,** Varis returns `200` with `"replayed": true` and the same output, without charging again. Once the output is deleted, Varis returns `410` with `output_expired` instead.
 
 If a call times out, the service may still have finished. A retry with the same key won't run it again or charge twice, but can't return its output yet. A new key runs the service again and charges again.
 
-If you reuse a key for a different service, Varis returns `409` with `conflict`.
+If you reuse a key for a different service or a different input, Varis returns `409` with `conflict`.
 
-<Callout title="Privacy Rule">
-Varis transmits service outputs once and never stores them. Agents typically hold them in short memory while executing their tasks. If an agent needs the output for later, it should cache it.
+<Callout title="How long Varis keeps an output">
+Varis keeps each successful output, encrypted, so a retry after a lost response can still get it. Varis deletes it an hour after it's first returned, or 24 hours after the call finishes if it's never returned. If your agent needs the output for later, store it yourself.
 </Callout>
 
 ## Handle errors
@@ -87,6 +87,7 @@ Every error has the same shape:
 | `409` | `service_not_invocable` | No | The service is disabled. Search for another one. |
 | `409` | `invocation_in_progress` | No | Retry later with the same key. |
 | `409` | `conflict` | No | Use a new idempotency key. |
+| `410` | `output_expired` | No | The call succeeded, and its output is deleted. To run it again, use a new key. You're charged again. |
 | `429` | `rate_limited` | No | Wait for the number of seconds in `Retry-After`, and then retry. |
 | `502` | `provider_error` | No | The service failed. Retry with a new key, or choose another service. |
 | `502` | `schema_violation` | No | The service's output violates the I/O contract. Choose another service. |
