@@ -8,6 +8,8 @@ Varis has an SDK for TypeScript and JavaScript. You can use Varis from any other
 1. **Describe your services** in `varis.json`.
 1. **Verify requests** from Varis in your endpoint.
 
+If a call takes longer than 30 seconds, you also report on it by hand. For more information, see [Report on long calls without an SDK](#report-on-long-calls-without-an-sdk).
+
 Everything else works the same, including the CLI, the dashboard, and payouts.
 
 ## Describe your services in `varis.json`
@@ -78,19 +80,22 @@ Varis signs every request with an Ed25519 key. To check that a request comes fro
 | `X-Varis-Signature` | The Ed25519 signature, base64-encoded. |
 | `X-Varis-Timestamp` | When Varis signed the request, in whole seconds since the Unix epoch. |
 | `X-Varis-Key-Id` | The ID of the key that signed it. |
-| `X-Varis-Request-Id` | The ID of the call. It isn't signed. |
+| `X-Varis-Invocation-Id` | The ID of the call, such as `var_invk_HgD8njwg3gkTca`. It's signed. |
+| `X-Varis-Request-Id` | The ID of the request, for your logs. It isn't signed. |
+| `X-Varis-Notification-Token` | A token that reports on this call. It isn't signed. For more information, see [Report on long calls without an SDK](#report-on-long-calls-without-an-sdk). |
 
 ### What Varis signs
 
 Varis signs the UTF-8 bytes of this text:
 
 ```txt
-{timestamp}.{method}.{path_and_query}.{raw_body}
+{timestamp}.{invocation_id}.{method}.{path_and_query}.{raw_body}
 ```
 
 | Part | Value |
 | --- | --- |
 | `timestamp` | The `X-Varis-Timestamp` header, exactly as sent. |
+| `invocation_id` | The `X-Varis-Invocation-Id` header, exactly as sent. |
 | `method` | `GET` or `POST`. |
 | `path_and_query` | The path and query string exactly as received, still percent-encoded, without the host. For example, `/currency/convert?amount=100&from=USD&to=EUR`. |
 | `raw_body` | The request body as raw bytes. Empty for `GET`. |
@@ -122,10 +127,10 @@ The response lists each key with its ID and an SPKI public key in PEM format:
 
 To verify a request, do the following:
 
-1. Read `X-Varis-Signature`, `X-Varis-Timestamp`, and `X-Varis-Key-Id`. If any is missing, reject the request.
+1. Read `X-Varis-Signature`, `X-Varis-Timestamp`, `X-Varis-Key-Id`, and `X-Varis-Invocation-Id`. If any is missing, reject the request.
 1. Check that the timestamp is within 300 seconds of your server's clock. If it isn't, reject the request.
 1. Find the public key whose `kid` matches `X-Varis-Key-Id`. Cache the keys, and refetch them when you see an unknown key ID, at most once every few minutes.
-1. Build the signed text from the timestamp, method, path and query, and raw body.
+1. Build the signed text from the timestamp, invocation ID, method, path and query, and raw body.
 1. Verify the base64-decoded signature against the signed text with the public key.
 
 If any step fails, respond with `401`. If you can't fetch the keys, respond with `503`, because the problem is on your side, not the caller's.
@@ -178,7 +183,8 @@ def verify_varis_request(method, path_and_query, headers, raw_body):
     signature = headers.get("x-varis-signature")
     timestamp = headers.get("x-varis-timestamp")
     kid = headers.get("x-varis-key-id")
-    if not signature or not timestamp or not timestamp.isdigit():
+    invocation_id = headers.get("x-varis-invocation-id")
+    if not signature or not invocation_id or not timestamp or not timestamp.isdigit():
         return False
     if abs(time.time() - int(timestamp)) > MAX_SKEW_SECONDS:
         return False
@@ -193,7 +199,7 @@ def verify_varis_request(method, path_and_query, headers, raw_body):
     if key is None:
         return False
 
-    signed = f"{timestamp}.{method}.{path_and_query}.".encode() + raw_body
+    signed = f"{timestamp}.{invocation_id}.{method}.{path_and_query}.".encode() + raw_body
     try:
         key.verify(base64.b64decode(signature), signed)
         return True
@@ -304,7 +310,8 @@ func Verify(method, pathAndQuery string, header http.Header, rawBody []byte) (bo
 	signature := header.Get("X-Varis-Signature")
 	timestamp := header.Get("X-Varis-Timestamp")
 	kid := header.Get("X-Varis-Key-Id")
-	if signature == "" {
+	invocationID := header.Get("X-Varis-Invocation-Id")
+	if signature == "" || invocationID == "" {
 		return false, nil
 	}
 	ts, err := strconv.ParseUint(timestamp, 10, 64)
@@ -338,7 +345,7 @@ func Verify(method, pathAndQuery string, header http.Header, rawBody []byte) (bo
 	if err != nil {
 		return false, nil
 	}
-	signed := append([]byte(timestamp+"."+method+"."+pathAndQuery+"."), rawBody...)
+	signed := append([]byte(timestamp+"."+invocationID+"."+method+"."+pathAndQuery+"."), rawBody...)
 	return ed25519.Verify(key, signed, sig), nil
 }
 ```
@@ -435,7 +442,8 @@ public final class VarisVerify {
         String signature = headers.get("x-varis-signature");
         String timestamp = headers.get("x-varis-timestamp");
         String kid = headers.get("x-varis-key-id");
-        if (signature == null || timestamp == null || !timestamp.matches("\\d{1,18}")) {
+        String invocationId = headers.get("x-varis-invocation-id");
+        if (signature == null || invocationId == null || timestamp == null || !timestamp.matches("\\d{1,18}")) {
             return false;
         }
         if (Math.abs(System.currentTimeMillis() / 1000 - Long.parseLong(timestamp)) > MAX_SKEW_SECONDS) {
@@ -464,7 +472,7 @@ public final class VarisVerify {
         try {
             Signature verifier = Signature.getInstance("Ed25519");
             verifier.initVerify(key);
-            verifier.update((timestamp + "." + method + "." + pathAndQuery + ".").getBytes(StandardCharsets.UTF_8));
+            verifier.update((timestamp + "." + invocationId + "." + method + "." + pathAndQuery + ".").getBytes(StandardCharsets.UTF_8));
             verifier.update(rawBody);
             return verifier.verify(Base64.getDecoder().decode(signature));
         } catch (GeneralSecurityException | IllegalArgumentException e) {
@@ -566,7 +574,8 @@ public static class VarisVerify
         string signature = headers["X-Varis-Signature"].ToString();
         string timestamp = headers["X-Varis-Timestamp"].ToString();
         string kid = headers["X-Varis-Key-Id"].ToString();
-        if (signature == "" || timestamp == "" || !timestamp.All(char.IsAsciiDigit)
+        string invocationId = headers["X-Varis-Invocation-Id"].ToString();
+        if (signature == "" || invocationId == "" || timestamp == "" || !timestamp.All(char.IsAsciiDigit)
             || !long.TryParse(timestamp, out long ts))
         {
             return false;
@@ -608,7 +617,7 @@ public static class VarisVerify
         {
             return false;
         }
-        byte[] signed = [.. Encoding.UTF8.GetBytes($"{timestamp}.{method}.{pathAndQuery}."), .. rawBody];
+        byte[] signed = [.. Encoding.UTF8.GetBytes($"{timestamp}.{invocationId}.{method}.{pathAndQuery}."), .. rawBody];
         return SignatureAlgorithm.Ed25519.Verify(key, signed, sig);
     }
 }
@@ -699,7 +708,8 @@ function varis_verify_request(string $method, string $pathAndQuery, array $heade
     $signature = $headers['x-varis-signature'] ?? '';
     $timestamp = $headers['x-varis-timestamp'] ?? '';
     $kid = $headers['x-varis-key-id'] ?? '';
-    if ($signature === '' || !ctype_digit($timestamp)) {
+    $invocationId = $headers['x-varis-invocation-id'] ?? '';
+    if ($signature === '' || $invocationId === '' || !ctype_digit($timestamp)) {
         return false;
     }
     if (abs(time() - (int) $timestamp) > VARIS_MAX_SKEW_SECONDS) {
@@ -725,7 +735,7 @@ function varis_verify_request(string $method, string $pathAndQuery, array $heade
         return false;
     }
 
-    return sodium_crypto_sign_verify_detached($sig, "{$timestamp}.{$method}.{$pathAndQuery}.{$rawBody}", $publicKey);
+    return sodium_crypto_sign_verify_detached($sig, "{$timestamp}.{$invocationId}.{$method}.{$pathAndQuery}.{$rawBody}", $publicKey);
 }
 ```
 
@@ -790,7 +800,8 @@ module VarisVerify
     signature = headers["x-varis-signature"]
     timestamp = headers["x-varis-timestamp"]
     kid = headers["x-varis-key-id"]
-    return false if signature.nil? || timestamp.nil? || !timestamp.match?(/\A\d+\z/)
+    invocation_id = headers["x-varis-invocation-id"]
+    return false if signature.nil? || invocation_id.nil? || timestamp.nil? || !timestamp.match?(/\A\d+\z/)
     return false if (Time.now.to_i - timestamp.to_i).abs > MAX_SKEW_SECONDS
 
     # An unknown key ID can mean Varis rotated its keys. Refetch, but not
@@ -805,7 +816,7 @@ module VarisVerify
     end
     return false if key.nil?
 
-    signed = "#{timestamp}.#{method}.#{path_and_query}.".b + raw_body.b
+    signed = "#{timestamp}.#{invocation_id}.#{method}.#{path_and_query}.".b + raw_body.b
     begin
       key.verify(nil, signature.unpack1("m0"), signed)
     rescue ArgumentError, OpenSSL::PKey::PKeyError
@@ -922,8 +933,11 @@ pub async fn verify_varis_request(
     raw_body: &[u8],
 ) -> Result<bool, BoxError> {
     let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
-    let (Some(signature), Some(timestamp)) = (header("x-varis-signature"), header("x-varis-timestamp"))
-    else {
+    let (Some(signature), Some(timestamp), Some(invocation_id)) = (
+        header("x-varis-signature"),
+        header("x-varis-timestamp"),
+        header("x-varis-invocation-id"),
+    ) else {
         return Ok(false);
     };
     let kid = header("x-varis-key-id").unwrap_or_default();
@@ -960,7 +974,7 @@ pub async fn verify_varis_request(
     let Ok(sig) = Signature::from_slice(&sig_bytes) else {
         return Ok(false);
     };
-    let mut signed = format!("{timestamp}.{method}.{path_and_query}.").into_bytes();
+    let mut signed = format!("{timestamp}.{invocation_id}.{method}.{path_and_query}.").into_bytes();
     signed.extend_from_slice(raw_body);
     Ok(key.verify(&signed, &sig).is_ok())
 }
@@ -1010,27 +1024,84 @@ Public key:
 
 ```txt
 -----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAA6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=
+MCowBQYDK2VwAyEAHjdIPqgW1QQACEIe5lkPQ+LskkTagN0AAP77dHTMpNc=
 -----END PUBLIC KEY-----
 ```
 
-Both requests use the timestamp `1760227200`. Set your clock check to that time, or skip it while you test.
+Both requests use the timestamp `1760227200` and the invocation ID `var_invk_HgD8njwg3gkTca`. Set your clock check to that time, or skip it while you test.
 
 **`GET` request:**
 
 | Part | Value |
 | --- | --- |
-| Signed text | `1760227200.GET./currency/convert?amount=100&from=USD&to=EUR.` |
-| Signature | `7lkSPdp78Bvn+k/bCJxk8FcYSIYwi05BbreVVRVFT41dOxxUCQ9HCAVsunSCz7FjRQTTNxvx6bITWRUFIemzAg==` |
+| Signed text | `1760227200.var_invk_HgD8njwg3gkTca.GET./currency/convert?amount=100&from=USD&to=EUR.` |
+| Signature | `IxXEvbabTfsLOw11QTqzMLTm1mMyhGQhRx4h9OIdoU6RPpHlcIGSBU151zfBfghRoqeEddMkCXoRlGfbhkwsBQ==` |
 
 **`POST` request:**
 
 | Part | Value |
 | --- | --- |
-| Signed text | `1760227200.POST./currency/convert.{"amount":100,"from":"USD","to":"EUR"}` |
-| Signature | `c/aE1ylAC5IYa3nWWYPBg987NJyvHYfmvjH4lLC2P6FfglxuUVDdBH/7967aB9EdmuZY0mgU6JRIECgSJs9HAQ==` |
+| Signed text | `1760227200.var_invk_HgD8njwg3gkTca.POST./currency/convert.{"amount":100,"from":"USD","to":"EUR"}` |
+| Signature | `XlXLb2Nk+yA8ff8dF3zjGKy0O/CpEIdVMFWUlsFZlDH+9Pna1uagHySMSzlZJl5UM8zUEmfUDDyus8VwzB1MAA==` |
 
 Your code must accept both. Change one character of either signed text, and your code must reject it.
+
+## Report on long calls without an SDK
+
+Your endpoint has 30 seconds to give its first answer. If the work takes longer, tell Varis that the call has started, and then report on it until it ends.
+
+### Accept the call
+
+Accept the call in one of these ways:
+
+- **Answer the request** with `202` and this body:
+
+  ```json
+  { "status": "started", "eta_seconds": 600, "message": "Queued for rendering" }
+  ```
+
+  `eta_seconds` and `message` are optional. A `202` without `"status": "started"` fails the call.
+
+- **Send a `started` notification before you answer.** Use this when your route hands the work to a queue and answers with its own body. Once Varis confirms the notification, it ignores the body of your answer. A `2xx` answer, or no answer within 30 seconds, leaves the call running. Any other answer fails the call.
+
+### Send notifications
+
+Send each notification as a `POST` request to this URL, with the call's `X-Varis-Invocation-Id`:
+
+```txt
+https://api.usevaris.com/v1/invocations/{invocation_id}/notifications
+```
+
+Authenticate with the `X-Varis-Notification-Token` header from the call:
+
+```bash
+curl https://api.usevaris.com/v1/invocations/var_invk_HgD8njwg3gkTca/notifications \
+  -H "Authorization: Bearer $NOTIFICATION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "completed", "result": { "rate": 0.92, "converted": 92 } }'
+```
+
+The body is one of these:
+
+| `status` | Other fields | When to send it |
+| --- | --- | --- |
+| `started` | `eta_seconds`, `message`, both optional | Before you answer the request, to accept the call. |
+| `running` | `progress_percent`, `eta_seconds`, and `message`, all optional | While the work runs, at least every 30 seconds. |
+| `completed` | `result`, required | When the work succeeds. `result` is the output. |
+| `failed` | `reason`, optional | When the work fails. Varis refunds the agent. |
+
+Agents see `progress_percent`, `eta_seconds`, and `message`. Varis cuts `message` to 160 characters, so keep it short and in plain text.
+
+Follow these rules:
+
+- **Report at least every 30 seconds.** If Varis receives no notification for 5 minutes, the call fails.
+- **Finish within 24 hours.** Every call fails 24 hours after it starts.
+- **Keep `result` to 4 MB of JSON or less.** It must also match your output schema. For a larger result, return a URL to your own storage. If the result is too large anyway, send `{"status": "failed", "reason": "output_too_large"}`.
+- **Stop when `continue` is `false`.** Every answer carries `continue`. When it's `false`, the call is over: stop sending notifications for it, and don't send its result. It doesn't ask you to stop your own work.
+- **Retry on network errors, `429`, and `5xx`.** For `429`, wait for the number of seconds in `Retry-After`. Don't retry any other `4xx`.
+- **Keep the token secret.** Never log it, and send it only to the URL above.
+
+For every answer, see [Send Invocation Notifications](/reference/sendInvocationNotification).
 
 ## What's next
 
