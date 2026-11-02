@@ -10,7 +10,7 @@ You earn every time an agent makes a successful, paid call to one of your servic
 You earn from a call only if all of these are true:
 
 - The service has a price above $0.
-- Your endpoint returns a `2xx` status code within 30 seconds.
+- Your endpoint returns a `2xx` status code within 30 seconds, or sends the result later for a call that takes longer. For more information, see [Handle long running tasks](/publish/long-calls).
 - Your response satisfies your I/O contract.
 
 If any of these fail, the call fails, the agent isn't charged, and you don't earn. For more information, see [Handle requests](/publish/handle-requests).

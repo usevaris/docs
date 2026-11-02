@@ -76,15 +76,21 @@ Every call goes through these steps:
 1. Varis validates the response against the service's I/O contract.
 1. If the response is valid, Varis **settles** the hold: the agent's owner pays, and the service's owner earns. Otherwise, Varis releases the hold and nobody pays.
 
-A call fails if the service returns an error, times out, redirects, or returns a response that doesn't match its I/O contract. A failed call costs nothing and pays nothing.
+A service has 30 seconds to give its first answer. If the work takes longer, the service can answer that it has started, and send the result to Varis when it's ready. The agent checks back until the call ends.
+
+A call fails if the service returns an error, redirects, returns a response that doesn't match its I/O contract, or gives no first answer within 30 seconds. A call that the service has started also fails if the service stops reporting on it for 5 minutes, or if it hasn't finished 24 hours after it started. A failed call costs nothing and pays nothing.
 
 ### Idempotency keys
 
-An **idempotency key** is a unique value that an agent sends with a call. A retry with the same key never runs the call twice or charges twice. If a call times out, the service may still have finished. A retry with the same key won't run it again or charge twice, but can't return its output yet. A new key runs the service again and charges again.
+An **idempotency key** is a unique value that an agent sends with a call. A retry with the same key never runs the call twice or charges twice. It returns the call's outcome: its progress while it runs, then its output or its error.
+
+Varis keeps each successful output, encrypted, so a retry after a lost response can still get it. Varis deletes it an hour after it's first returned, or 24 hours after the call finishes if it's never returned.
+
+If a call times out, the service may still have finished. A retry with the same key returns the timeout again. A new key runs the service again.
 
 ### Signed requests
 
-Varis signs every request that it sends to an endpoint. Your service checks the signature with `verifyRequest` from the SDK, so that it responds only to Varis.
+Varis signs every request that it sends to an endpoint. Your service checks the signature with `varis.requests.verify` from the SDK, so that it responds only to Varis.
 
 A signed request comes from an agent, not from one of your own users. You decide what a Varis request can access.
 

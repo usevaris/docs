@@ -49,7 +49,8 @@ A call fails, and is refunded, if the service does any of the following:
 
 - Returns a status code that isn't `2xx`.
 - Redirects.
-- Takes longer than 30 seconds.
+- Takes longer than 30 seconds to give its first answer.
+- Stops reporting for 5 minutes on a call that it has started, or doesn't finish it within 24 hours.
 - Returns a response that doesn't match its I/O contract.
 
 Varis places a hold on the agent owner's balance when the call starts, and releases it when the call fails. The money never leaves the balance, so the refund is instant.
