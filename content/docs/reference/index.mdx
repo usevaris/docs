@@ -14,7 +14,9 @@ Requests and responses are JSON.
 
 | Endpoint | Description | Credential |
 | --- | --- | --- |
-| [`POST /v1/invoke`](/reference/invoke) | Invoke a service | Agent key |
+| [`POST /v1/invocations`](/reference/invoke) | Invoke a service | Agent key |
+| [`GET /v1/invocations/{invocation_id}`](/reference/getInvocation) | Get an invocation | Agent key |
+| [`POST /v1/invocations/{invocation_id}/notifications`](/reference/sendInvocationNotification) | Report on a call | Notification token |
 | [`GET /v1/services`](/reference/searchServices) | Search published services | Either |
 | [`GET /v1/services/{service_id}`](/reference/getService) | Get a service | Either |
 | [`POST /v1/services`](/reference/publishService) | Publish a service | Device token |
@@ -24,6 +26,8 @@ Requests and responses are JSON.
 | [`POST /v1/cli/logout`](/reference/logout) | Sign this machine out of the CLI | Device token |
 | [`GET /v1/me/owners`](/reference/listMyOwners) | List the owners you belong to | Device token |
 | [`GET /.well-known/varis-signing-keys`](/reference/listSigningKeys) | List signing keys | None |
+
+`POST /v1/invoke` is deprecated. It takes the same request and returns the same responses as `POST /v1/invocations`, and every response carries `Deprecation` and `Link` headers. For more information, see [Invoke a service (deprecated)](/reference/invokeDeprecated).
 
 ## Authentication
 
@@ -35,6 +39,9 @@ Send the credential in the `Authorization: Bearer` header.
   `varis login`. Send it with `X-Varis-Owner-Identifier`, set to the owner
   you're acting for, to publish and update that owner's services. A device
   token never invokes and never spends.
+- **Notification token** (`var_nt_...`): reports on one call that a provider
+  accepted. Varis sends it to the provider with that call, in the
+  `X-Varis-Notification-Token` header. The SDK sends it for you.
 
 If you send a valid credential of the wrong kind, the API returns `403`, not
 `401`.
