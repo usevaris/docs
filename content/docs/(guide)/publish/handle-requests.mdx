@@ -126,7 +126,7 @@ The call fails, and the agent isn't charged, in any of these cases:
 | --- | --- |
 | Non-`2xx` status code | Your endpoint returns `500` or `404`. |
 | Redirect | Your framework adds a trailing slash and returns `308`. Varis never follows redirects. |
-| Timeout | Your endpoint takes longer than 30 seconds to respond. For longer work, see [Handle long running tasks](/publish/long-calls). |
+| Timeout | Your endpoint takes longer than 30 seconds to respond. For longer work, see [Handle long-running tasks](/publish/long-running-tasks). |
 | Output doesn't match | A required field is missing, a field has the wrong type, or the body is empty or HTML. |
 | Output too large | The body is larger than 4 MB of JSON. Return a URL to your own storage instead, such as a link to the file. |
 
@@ -142,6 +142,6 @@ To send a signed test request to your endpoint on `localhost` before you publish
 
 ## What's next
 
-- [Handle long running tasks](/publish/long-calls).
+- [Handle long-running tasks](/publish/long-running-tasks).
 - [Local development](/cli/local-development).
 - [How earnings work](/earnings).

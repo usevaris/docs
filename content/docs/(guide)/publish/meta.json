@@ -1,1 +1,1 @@
-{ "pages": ["index", "create", "update", "handle-requests"] }
+{ "pages": ["index", "create", "update", "handle-requests", "long-running-tasks"] }
