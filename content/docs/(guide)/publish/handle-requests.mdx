@@ -26,14 +26,16 @@ Every request carries these headers:
 
 | Header | Description |
 | --- | --- |
-| `X-Varis-Request-Id` | A unique ID for the call. Log it, so that you can match your logs to the call in the dashboard. |
-| `X-Varis-Signature` | The signature that `verifyRequest` checks. |
+| `X-Varis-Request-Id` | A unique ID for the request. Log it, so that you can match your logs to the call in the dashboard. |
+| `X-Varis-Invocation-Id` | The ID of the call, dedupe on this. |
+| `X-Varis-Signature` | The signature that `varis.requests.verify` checks. |
 | `X-Varis-Timestamp` | When Varis signed the request. |
 | `X-Varis-Key-Id` | The Varis signing key that signed the request. |
+| `X-Varis-Notification-Token` | A token used to send routine status update back to Varis when the call takes longer. The SDK uses it. Never log it. |
 
 ## Verify the request
 
-Call `verifyRequest` before you do any work. It returns `true` if the request comes from Varis, and `false` otherwise.
+Call `varis.requests.verify` before you do any work. It returns `true` if the request comes from Varis, and `false` otherwise.
 
 <Tabs items={['Next.js', 'Express']}>
 <Tab value="Next.js">
@@ -45,7 +47,7 @@ const varis = new Varis();
 
 export async function POST(request: Request) {
   try {
-    if (!(await varis.verifyRequest(request))) {
+    if (!(await varis.requests.verify(request))) {
       return new Response("Unauthorized", { status: 401 });
     }
   } catch (error) {
@@ -72,14 +74,14 @@ import { Varis } from "@usevaris/sdk";
 const app = express();
 const varis = new Varis();
 
-app.get("/currency/convert", async (req, res) => {
-  if (!(await varis.verifyRequest(req))) {
+app.use(express.json());
+
+app.post("/currency/convert", async (req, res) => {
+  if (!(await varis.requests.verify(req))) {
     return res.status(401).send("Unauthorized");
   }
 
-  const from = String(req.query.from);
-  const to = String(req.query.to);
-  const amount = Number(req.query.amount);
+  const { from, to, amount } = req.body;
   const rate = await getRate(from, to);
 
   res.json({ rate, converted: amount * rate });
@@ -89,11 +91,12 @@ app.get("/currency/convert", async (req, res) => {
 </Tab>
 </Tabs>
 
-Follow these rules when you use `verifyRequest`:
+Follow these rules when you use `varis.requests.verify`:
 
 - **Create one `Varis` instance per process**, at the top of the file or in a shared module. Each instance caches the Varis signing keys, so a new instance per request fetches them every time.
-- **Verify before anything reads the body.** Body parsers such as `express.json()` consume the body, and the signature check then fails. For `POST` routes, call `verifyRequest` first, or skip the body parser on that route.
-- **Return `503`, not `401`, if the keys can't load.** `verifyRequest` throws `VarisKeyFetchError` only when it can't fetch the signing keys. That's a temporary problem on your side, not a bad request.
+- **With a Web `Request`, verify before you read the body.** `varis.requests.verify` reads a copy of the body, so you can still read it afterwards.
+- **With Express or another Node.js server, register a JSON body parser**, such as `express.json()`, before the route. `varis.requests.verify` checks the signature against the parsed body, or against `req.rawBody` if your parser keeps the raw bytes. Without a parser, it throws `TypeError` for a `POST` request.
+- **Return `503`, not `401`, if the keys can't load.** `varis.requests.verify` throws `VarisKeyFetchError` only when it can't fetch the signing keys. That's a temporary problem on your side, not a bad request.
 - **Keep your server clock in sync.** Varis rejects requests signed more than 300 seconds before or after your server's time.
 
 The signature covers the method, path, query string, and body, but not the host. A proxy that changes the host is fine. 
@@ -113,7 +116,7 @@ Treat it as its own kind of caller. Don't let it fall through to logic that assu
 To complete the call, return the following:
 
 - A `2xx` status code.
-- A JSON body that matches your I/O contract.
+- A JSON body that matches your I/O contract, of 4 MB or less.
 
 Varis checks your response against your contract. If it matches, Varis passes the output to the agent, and you earn.
 
@@ -123,8 +126,9 @@ The call fails, and the agent isn't charged, in any of these cases:
 | --- | --- |
 | Non-`2xx` status code | Your endpoint returns `500` or `404`. |
 | Redirect | Your framework adds a trailing slash and returns `308`. Varis never follows redirects. |
-| Timeout | Your endpoint takes longer than 30 seconds to respond. |
+| Timeout | Your endpoint takes longer than 30 seconds to respond. For longer work, see [Handle long running tasks](/publish/long-calls). |
 | Output doesn't match | A required field is missing, a field has the wrong type, or the body is empty or HTML. |
+| Output too large | The body is larger than 4 MB of JSON. Return a URL to your own storage instead, such as a link to the file. |
 
 <Callout>
 If your service returns HTML, stringify it and pass it into a `json` response. E.g. `{html_response: "<html>...</html>"}`
@@ -138,5 +142,6 @@ To send a signed test request to your endpoint on `localhost` before you publish
 
 ## What's next
 
+- [Handle long running tasks](/publish/long-calls).
 - [Local development](/cli/local-development).
 - [How earnings work](/earnings).
