@@ -63,7 +63,7 @@ If you give no input, the CLI sends `{}` when the service has no required fields
 
 ## How test requests are signed
 
-Your endpoint verifies a test request with `verifyRequest`, the same as a real one. You don't change your code to test.
+Your endpoint verifies a test request with `varis.requests.verify`, the same as a real one. You don't change your code to test.
 
 While `varis test` runs, the CLI signs the request with a throwaway test key and serves the public half at `127.0.0.1:47823`. In development, the SDK fetches the key from there.
 
@@ -75,8 +75,8 @@ Test requests have a request ID that starts with `var_tst_req_`. Real ones start
 
 If a test request fails with `401`, the CLI's message says whether your server fetched the test key.
 
-- **Your server didn't fetch the key:** it can't reach the CLI, or it doesn't call `verifyRequest`. Check the cases in the following table.
-- **Your server fetched the key, but the check failed:** something changed the request before `verifyRequest` saw it, such as a body parser or a proxy that rewrites the path. Verify before parsing the request body.
+- **Your server didn't fetch the key:** it can't reach the CLI, or it doesn't call `varis.requests.verify`. Check the cases in the following table.
+- **Your server fetched the key, but the check failed:** something changed the request before `varis.requests.verify` saw it, such as code that read the body first, or a proxy that rewrites the path.
 
 | Setup | Fix |
 | --- | --- |
