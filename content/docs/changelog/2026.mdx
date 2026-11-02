@@ -1,0 +1,141 @@
+---
+title: "2026"
+description: Each entry lists what changed (newest first) in the Varis API, the MCP server, the SDK, and the CLI in 2026, release by release, with what to change in your code and by when.
+---
+
+## 4 November 2026
+
+Calls can now take longer than 30 seconds. A retry returns the call's output, and an agent can look up a call by its ID.
+
+### Migrate
+
+<Callout type="warning" title="Upgrade the SDK by 4 November 2026">
+From 4 November 2026, Varis signs the invocation ID in every request to your endpoint. SDK 1.1.0 and earlier, and verification code you wrote yourself, reject every request from that date. SDK 1.2.0 accepts both the old and the new signature.
+</Callout>
+---
+**If you use the SDK,** upgrade to 1.2.0. You don't need to change your code:
+
+```bash tab="npm" tab-group="varis-docs-package-manager"
+npm install @usevaris/sdk@1.2.0
+```
+
+```bash tab="pnpm" tab-group="varis-docs-package-manager"
+pnpm add @usevaris/sdk@1.2.0
+```
+
+```bash tab="yarn" tab-group="varis-docs-package-manager"
+yarn add @usevaris/sdk@1.2.0
+```
+
+```bash tab="bun" tab-group="varis-docs-package-manager"
+bun add @usevaris/sdk@1.2.0
+```
+
+```bash tab="deno" tab-group="varis-docs-package-manager"
+deno add npm:@usevaris/sdk@1.2.0
+```
+
+Then, before SDK 2.0.0 in January 2027, replace `varis.verifyRequest` with `varis.requests.verify`. SDK 2.0.0 removes `verifyRequest`, and stops accepting the old signature:
+
+```ts tab="TypeScript" tab-group="varis-docs-language"
+// Before
+if (!(await varis.verifyRequest(request))) {
+// After
+if (!(await varis.requests.verify(request))) {
+```
+
+**If you verify signatures without an SDK,** add the `X-Varis-Invocation-Id` header to the signed text, between the timestamp and the method. The signed text is now `{timestamp}.{invocation_id}.{method}.{path_and_query}.{raw_body}`:
+
+```python tab="Python" tab-group="varis-docs-language"
+# Before
+signed = f"{timestamp}.{method}.{path_and_query}.".encode() + raw_body
+# After
+invocation_id = headers.get("x-varis-invocation-id")
+signed = f"{timestamp}.{invocation_id}.{method}.{path_and_query}.".encode() + raw_body
+```
+
+For the other languages and new test vectors, see [Verify signatures without an SDK](/sdks/other-languages#verify-signatures-without-an-sdk).
+
+---
+
+**If you call `POST /v1/invoke`,** change the path to `POST /v1/invocations`. The request and the responses are the same. `POST /v1/invoke` keeps working.
+
+---
+
+**If your agent handles `409` with `invocation_in_progress`,** migrate it to handle `202` with `"status": "in_progress"` instead. For more information, see [Follow a call that takes longer](/use/invoke#follow-a-call-that-takes-longer).
+
+---
+
+### Added
+| Scope | Item | Description |
+| --- | --- | --- | 
+| API | `POST /v1/invocations` | Replaces `POST /v1/invoke`, with the same request and responses. |
+| API | `GET /v1/invocations/{invocation_id}` | Returns a call's outcome without running it again or charging. Any agent of the same owner can look up the call. |
+| API | `202` response with `"status": "in_progress"` | Returned by calls that take longer, along with the service's progress, and a `Retry-After` header. |
+| API | More metadata to call responses | Responses to a call now carrry its `status` and `completed_at`, and an `X-Varis-Invocation-Id` header. Responses to `POST /v1/invocations` also echo the `Idempotency-Key` header. |
+| API | New error code `output_burnt` on `410` response | Returned for a retry or a lookup of a successful call whose output Varis has deleted. |
+| API | `POST /v1/invocations/ {invocation_id}/notifications` | For providers to send routine notifications regarding a call that takes longer. |
+| MCP | `get_invocation` tool | Returns a call's outcome by its `invocation_id`. |
+| MCP | `"status": "in_progress"` in `invoke_service` | Used to report on a call that takes longer, with when and how to check back. |
+| SDK | `varis.requests.verify` | Replaces `varis.verifyRequest`. |
+| SDK | `varis.requests.handleOnServer` | Let's providers deliver on long-running tasks |
+| SDK | `varis.requests.delegateToWorker` | Let's providers deliver on long-running tasks |
+| SDK | `varis.requests.handleInWorker` | Let's providers deliver on long-running tasks |
+| SDK | `varis.requests.handleInWorker` | Let's providers deliver on long-running tasks |
+| API | `X-Varis-Invocation-Id` header | New request to Varis now carries this header for providers to dedupe request |
+| API | `X-Varis-Notification-Token` header | New request to Varis now carries this header for provider code to send notification back to Varis for long running tasks. |
+
+For more information see: 
+- [Handle long-running tasks](/publish/long-running-tasks)
+
+--- 
+
+### Changed
+
+| Scope | Details |
+| --- | --- |
+| API |  Varis signs the invocation ID in requests to your endpoint. See [Migrate](#migrate). |
+| API |  A retry with the same idempotency key returns a successful call's output. Varis caches the output, encrypted, for an hour after the agent reads it, or 24 hours after the call ends if it's never read. |
+| API |  A retry of a call that's still running returns `202` with `"status": "in_progress"`, not `409`. |
+| API |  Reusing an idempotency key with a different input returns `409` with `conflict`, as reusing it with a different service already did. |
+| API | An idempotency key ensures idempotency for 48 hours after the original request is completed. Reusing the key after 48 hours starts a fresh request and the agent is charged. |
+| API | A call fails, and the agent isn't charged, if the service stops reporting on it for 5 minutes, hasn't finished it 24 hours after it started, or returns an output larger than 4 MB of JSON. |
+| API | A failure on Varis's side before the provider's service is called returns `500` with `internal_error`, and the agent isn't charged. |
+| API | `GET /v1/invocations/{invocation_id}` shares the agent's limit of 120 requests a minute with `POST /v1/invocations`. |
+
+---
+
+### Deprecated
+| Scope | Item | Description |
+| --- | --- | --- | 
+| API | `POST /v1/invoke` | Use `POST /v1/invocations`. |
+| SDK | `varis.verifyRequest` | Use `varis.requests.verify`. SDK 2.0.0 drops it in January 2027. |
+
+---
+
+### Removed
+
+| Scope | Item | 
+| --- | --- |  
+| API | The `invocation_in_progress` error code. |
+
+---
+
+### Fixed
+
+| Scope | Details | 
+| --- | --- |  
+| SDK | Verifying an Express `req`. `varis.requests.verify` checks the body that your JSON parser produced, and reads the path from `req.originalUrl`, so it also works inside a mounted router. |
+| API | A call whose output was too large for Varis to deliver was charged. It now fails with a `502` and `provider_error`, and the agent isn't charged. |
+
+---
+
+### Credits & thank yous 
+| Contributor | Purpose | Link | 
+| --- | --- | --- | 
+| [Simin Yuan](https://github.com/simin-yuan) | Platform reliability testing | Reliability Test Report |
+| [Light Emerge](https://www.lightemerge.com/) | Platform reliability testing | Reliability Test Report |
+| [GXTN](https://github.com/enitxugua) | Agent notification gateway | Private |
+| [GXTN](https://github.com/enitxugua) | TypeScript SDK v1.2.0 | [Varis TypeScript SDK Repo](https://github.com/usevaris/sdk-ts) |
+| [GXTN](https://github.com/enitxugua) | Docs v1.0.1 | [Varis Docs Repo](https://github.com/usevaris/docs) |
+| [GXTN](https://github.com/enitxugua) | Varis CLI 1.1.0 | [Varis CLI Repo](https://github.com/usevaris/cli) |
