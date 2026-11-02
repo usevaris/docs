@@ -8,7 +8,7 @@ Varis has an SDK for TypeScript and JavaScript. You can use Varis from any other
 1. **Describe your services** in `varis.json`.
 1. **Verify requests** from Varis in your endpoint.
 
-If a call takes longer than 30 seconds, you also report on it by hand. For more information, see [Report on long calls without an SDK](#report-on-long-calls-without-an-sdk).
+If a call takes longer than 30 seconds, you also report on it by hand. For more information, see [Report on long-running tasks without an SDK](#report-on-long-running-tasks-without-an-sdk).
 
 Everything else works the same, including the CLI, the dashboard, and payouts.
 
@@ -82,7 +82,7 @@ Varis signs every request with an Ed25519 key. To check that a request comes fro
 | `X-Varis-Key-Id` | The ID of the key that signed it. |
 | `X-Varis-Invocation-Id` | The ID of the call, such as `var_invk_HgD8njwg3gkTca`. It's signed. |
 | `X-Varis-Request-Id` | The ID of the request, for your logs. It isn't signed. |
-| `X-Varis-Notification-Token` | A token that reports on this call. It isn't signed. For more information, see [Report on long calls without an SDK](#report-on-long-calls-without-an-sdk). |
+| `X-Varis-Notification-Token` | A token that reports on this call. It isn't signed. For more information, see [Report on long-running tasks without an SDK](#report-on-long-running-tasks-without-an-sdk). |
 
 ### What Varis signs
 
@@ -1046,7 +1046,7 @@ Both requests use the timestamp `1760227200` and the invocation ID `var_invk_HgD
 
 Your code must accept both. Change one character of either signed text, and your code must reject it.
 
-## Report on long calls without an SDK
+## Report on long-running tasks without an SDK
 
 Your endpoint has 30 seconds to give its first answer. If the work takes longer, tell Varis that the call has started, and then report on it until it ends.
 
@@ -1097,7 +1097,7 @@ Follow these rules:
 - **Report at least every 30 seconds.** If Varis receives no notification for 5 minutes, the call fails.
 - **Finish within 24 hours.** Every call fails 24 hours after it starts.
 - **Keep `result` to 4 MB of JSON or less.** It must also match your output schema. For a larger result, return a URL to your own storage. If the result is too large anyway, send `{"status": "failed", "reason": "output_too_large"}`.
-- **Stop when `continue` is `false`.** Every answer carries `continue`. When it's `false`, the call is over: stop sending notifications for it, and don't send its result. It doesn't ask you to stop your own work.
+- **Stop when `continue` is `false`.** Every answer carries `continue`. When it's `false`, the call is over: stop sending notifications for it, and don't send its result. Varis doesn't stop your job, or signal it in any other way. Whether to stop the work is up to you.
 - **Retry on network errors, `429`, and `5xx`.** For `429`, wait for the number of seconds in `Retry-After`. Don't retry any other `4xx`.
 - **Keep the token secret.** Never log it, and send it only to the URL above.
 

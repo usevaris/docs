@@ -65,7 +65,7 @@ info:
     Sending the wrong credential type is a `403`, not a `401`. The credential
     is valid; it is not permitted for that operation.
 
-    A provider reports on a long call with a **notification token**
+    A provider reports on a long-running task with a **notification token**
     (`var_nt_`) that Varis sends with that call. It works only for that call.
 
 # -----------------------------------------------------------------------------
@@ -418,8 +418,9 @@ paths:
         runs. Every call fails 24 hours after it starts.
 
         Every answer carries `continue`. `false` means the call is over:
-        stop reporting on it and don't send its result. It never asks you to
-        stop your own work.
+        stop reporting on it and don't send its result. Varis doesn't stop
+        your job, or signal it in any other way. Whether to stop the work is
+        up to you.
 
         Varis accepts up to 120 notifications a minute for one call.
       tags: [Provider notifications]
@@ -2263,7 +2264,8 @@ components:
           type: boolean
           description: |
             `false` when the call is over: stop reporting on it, and don't send
-            its result. Never an instruction to stop your own work.
+            its result. Varis doesn't stop your job, or signal it in any other
+            way.
         error:
           type: object
           required: [code, message]

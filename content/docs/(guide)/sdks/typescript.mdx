@@ -1,15 +1,15 @@
 ---
 title: TypeScript
-description: Declare Varis services, verify Varis requests, and handle long calls in TypeScript and JavaScript with @usevaris/sdk.
+description: Declare Varis services, verify Varis requests, and handle long-running tasks in TypeScript and JavaScript with @usevaris/sdk.
 ---
 
 `@usevaris/sdk` does three things in your code:
 
 - **Declares your services** with `varis.services.define`, so the CLI can publish them.
 - **Verifies requests from Varis** with `varis.requests.verify`, so your endpoint answers requests from Varis.
-- **Handles long calls** with `varis.requests.handleOnServer`, `varis.requests.delegateToWorker`, and `varis.requests.handleInWorker`, so a call can take longer than 30 seconds.
+- **Handles long-running tasks** with `varis.requests.handleOnServer`, `varis.requests.delegateToWorker`, and `varis.requests.handleInWorker`, so a call can take longer than 30 seconds.
 
-It's small, and it has no runtime dependencies. It sends data only to Varis, and only for long running tasks. The data sent includes the task's progress and its result.
+It's small, and it has no runtime dependencies. It sends data only to Varis, and only for long-running tasks. The data sent includes the task's progress and its result.
 
 This page describes version 1.2.0.
 
@@ -67,7 +67,7 @@ You rarely need these. They exist for testing.
 | `keysUrl` | `string` | The Varis API | Where to fetch signing keys from. |
 | `publicKeys` | `VarisPublicKey[]` | None | Uses these keys instead of fetching any. Use it in unit tests. |
 | `maxClockSkewSeconds` | `number` | `300` | How far a request's timestamp can be from your server's clock. |
-| `waitUntil` | `(promise: Promise<unknown>) => void` | None | Keeps a serverless function running until a long call's result is sent, such as `waitUntil` from `@vercel/functions`. Next.js servers need none. |
+| `waitUntil` | `(promise: Promise<unknown>) => void` | None | Your serverless host's `waitUntil`, which keeps a function running until a long-running task's result is sent. Leave it out on Next.js, Vercel, Netlify Functions, Cloudflare Workers, and servers that keep running: the SDK handles those itself. |
 
 ## `new Varis().services.define`
 
@@ -182,7 +182,7 @@ With a Node.js `req`, register a JSON body parser, such as `express.json()`, bef
 
 ## `new Varis().requests.handleOnServer`
 
-Lets a call take longer than 30 seconds while the work runs in the route. For a guide, see [Handle long calls](/publish/long-calls#run-the-work-in-the-route).
+Lets a call take longer than 30 seconds while the work runs in the route. For a guide, see [Handle long-running tasks](/publish/long-running-tasks#run-the-work-in-the-route).
 
 ```ts
 return varis.requests.handleOnServer(request, renderVideo(request));
@@ -193,7 +193,7 @@ return varis.requests.handleOnServer(request, renderVideo(request));
 | Argument | Type | Description |
 | --- | --- | --- |
 | `request` | `Request` or a Node.js `req` | The incoming request. |
-| `work` | `Promise` | The route's existing work, already started. Web-style work resolves to a `Response`. Express-style work writes to `res`, which the SDK finds at `req.res`. |
+| `work` | `Promise` | The call to the route's existing work, such as `renderVideo(request)`. Web-style work resolves to a `Response`. Express-style work writes to `res`, which the SDK finds at `req.res`. |
 
 ### Return value
 
@@ -206,7 +206,7 @@ If the work throws within 20 seconds, `handleOnServer` throws the same error. Af
 
 ## `new Varis().requests.delegateToWorker`
 
-Hands a call to a queue worker. Tells Varis that the call has started, and waits for Varis to confirm. For a guide, see [Handle long calls](/publish/long-calls#run-the-work-in-a-queue-worker).
+Hands a call to a queue worker. Tells Varis that the call has started, and waits for Varis to confirm. For a guide, see [Handle long-running tasks](/publish/long-running-tasks#run-the-work-in-a-queue-worker).
 
 ```ts
 const details = await varis.requests.delegateToWorker(req);
@@ -270,10 +270,10 @@ Deprecated. Use `requests.verify`, which takes the same request and gives the sa
 
 ## Instructions for coding agents
 
-The SDK ships with instructions for coding agents in `node_modules/@usevaris/sdk/docs/agents.md`. `varis init` points your project's `AGENTS.md` at them, so Claude Code, Cursor, and other agents can declare services, verify requests, and handle long calls correctly without reading these docs.
+The SDK ships with instructions for coding agents in `node_modules/@usevaris/sdk/docs/agents.md`. `varis init` points your project's `AGENTS.md` at them, so Claude Code, Cursor, and other agents can declare services, verify requests, and handle long-running tasks correctly without reading these docs.
 
 ## What's next
 
 - [Publish a service](/publish/create).
 - [Handle requests](/publish/handle-requests).
-- [Handle long running tasks](/publish/long-calls).
+- [Handle long-running tasks](/publish/long-running-tasks).
