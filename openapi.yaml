@@ -45,7 +45,7 @@ info:
   title: Varis API
   # Your API's version, unrelated to the `openapi:` key above. Bump the minor
   # when you add a field, the major when you break one.
-  version: 0.1.0
+  version: 0.2.0
   license:
     name: Proprietary
     url: https://usevaris.com/terms
@@ -65,14 +65,17 @@ info:
     Sending the wrong credential type is a `403`, not a `401`. The credential
     is valid; it is not permitted for that operation.
 
+    A provider reports on a long call with a **notification token**
+    (`var_nt_`) that Varis sends with that call. It works only for that call.
+
 # -----------------------------------------------------------------------------
 # servers: base URLs. Every path below is appended to these.
 #
 # This is where the SDK's default base URL comes from. Add a `staging` entry
 # here later and the generator gives users a way to switch.
 #
-# Paths below start at /v1, so this resolves to https://api.usevaris.com/v1/invoke.
-# Your route file lives at app/api/v1/invoke, so production needs a rewrite in
+# Paths below start at /v1, so this resolves to https://api.usevaris.com/v1/invocations.
+# Your route file lives at app/api/v1/invocations, so production needs a rewrite in
 # next.config.ts stripping the /api prefix. The alternative is changing every
 # path below to /api/v1, which is uglier and permanent.
 # -----------------------------------------------------------------------------
@@ -103,7 +106,11 @@ security:
 # -----------------------------------------------------------------------------
 tags:
   - name: Gateway
-    description: Invoking services.
+    description: Invoking services and checking on invocations.
+  - name: Provider notifications
+    description: |
+      How a provider reports on a call that takes longer than 30 seconds.
+      The SDK sends these for you.
   - name: Services
     description: Publishing, updating, and finding services.
   - name: CLI
@@ -131,12 +138,17 @@ tags:
 # =============================================================================
 paths:
   # ---------------------------------------------------------------------------
-  # The gateway. The only endpoint that moves money.
+  # The gateway. The only endpoints that move money.
+  #
+  # Starting a call and checking on it share one path. Every outcome below is
+  # written once, in components/responses, because the same call can be
+  # answered three ways: the first request, a same-key retry, and a lookup.
   # ---------------------------------------------------------------------------
-  /v1/invoke:
+  /v1/invocations:
     post:
       # Becomes client.invoke() in the generated SDK. Must be unique across the
       # whole document. This is the single most consequential string in the file.
+      # It moved here from /v1/invoke, so client.invoke() calls the new path.
       operationId: invoke
       # One line, shown in docs listings and IDE autocomplete.
       summary: Invoke a service
@@ -148,6 +160,24 @@ paths:
         schema. A response that violates the output schema is a failure: the
         provider has not delivered.
 
+        A provider has 30 seconds to give its first answer. A provider can
+        answer that it has started instead, and finish later. The call then
+        returns `202` with `status: "in_progress"`. Retry with the same
+        `Idempotency-Key`, or call `GET /v1/invocations/{invocation_id}`,
+        after `Retry-After` seconds. An accepted call fails if the provider
+        reports nothing for 300 seconds, and every call fails 24 hours after
+        it starts.
+
+        A retry with the same `Idempotency-Key`, service, and input never runs
+        the call again or charges again. It returns the call's recorded
+        outcome, with the original `request_id` and `"replayed": true`. A key
+        stays reserved while its call runs and for 48 hours after it ends.
+
+        Varis keeps a successful output, encrypted, for one hour after it's
+        first returned, or 24 hours after the call ends if it's never
+        returned. After that, a same-key retry or a lookup returns `410`
+        with `output_burnt`.
+
         Requires an agent key. A developer API key is rejected with `403`.
       tags: [Gateway]
       # Overrides the top-level default. Here it happens to match, but stating
@@ -156,40 +186,12 @@ paths:
       security:
         - agentKey: []
       # Inputs that are NOT the body: headers, query strings, path segments.
-      # This one is a $ref because the same header appears on future endpoints.
+      # A $ref because the same header appears on /v1/invoke.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       # The request body. Generators turn this into the method's argument type.
       requestBody:
-        required: true
-        content:
-          # The media type. Everything under it describes a JSON body.
-          application/json:
-            schema:
-              type: object
-              # Fields the caller MUST send. Everything else is optional.
-              # Generators mark non-required fields as optional in TypeScript.
-              required: [service_id]
-              properties:
-                service_id:
-                  type: string
-                  description: The service to invoke.
-                  # Shows up in docs and in the "try it" playground.
-                  example: var_serv_ydZfZ9gKKe1tQe
-                input:
-                  type: object
-                  description: |
-                    Passed to the provider unchanged. Must validate against the
-                    service's `input_schema`. A malformed input fails the
-                    invocation without calling the provider and without
-                    creating a transaction. Leave it out for a service that
-                    takes no input: a missing input is treated as `{}`, and
-                    still has to pass the schema, so a service with required
-                    fields rejects it.
-                  # Allows arbitrary keys. Without this, a strict validator
-                  # rejects anything not listed under `properties`, and here
-                  # the shape is defined by the service, not by Varis.
-                  additionalProperties: true
+        $ref: "#/components/requestBodies/Invoke"
       # Every status code this operation can return, each with its body shape.
       #
       # Status codes are quoted because YAML would otherwise read 200 as a
@@ -200,36 +202,49 @@ paths:
       responses:
         "200":
           # Required on every response. Docs show it beside the status code.
-          description: The provider returned output matching its declared schema.
+          description: |
+            The provider returned output matching its declared schema. On a
+            same-key retry, `replayed` is `true` and `request_id` is the
+            original call's.
           # Response headers worth documenting. Most are not.
           headers:
             X-Varis-Request-Id:
               $ref: "#/components/headers/RequestId"
+            X-Varis-Invocation-Id:
+              $ref: "#/components/headers/InvocationId"
+            Idempotency-Key:
+              $ref: "#/components/headers/IdempotencyKey"
           content:
             application/json:
               schema:
-                type: object
-                required: [request_id, invocation_id, output]
-                properties:
-                  request_id:
-                    # A $ref inside properties: reuse one definition everywhere
-                    # the field appears, so changing it changes all of them.
-                    $ref: "#/components/schemas/RequestId"
-                  invocation_id:
-                    type: string
-                    example: var_invk_HgD8njwg3gkTca
-                  output:
-                    type: object
-                    description: The provider's response, verbatim.
-                    additionalProperties: true
-              # A whole-body example, as opposed to per-field `example:` keys.
-              # Worth writing for the happy path; skip it elsewhere.
-              example:
-                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
-                invocation_id: var_invk_HgD8njwg3gkTca
-                output:
-                  echoed: hello
-                  received_at: "2026-09-19T02:41:12.996Z"
+                $ref: "#/components/schemas/InvocationSuccess"
+              # `examples` (plural) holds several named cases. `example`
+              # (singular) holds one. Note the extra `value:` nesting the
+              # plural form requires; forgetting it is the usual mistake.
+              examples:
+                success:
+                  summary: A call that succeeded
+                  value:
+                    invocation_id: var_invk_HgD8njwg3gkTca
+                    status: success
+                    output:
+                      rate: 0.92
+                      converted: 92
+                    completed_at: "2026-11-01T10:15:04.212Z"
+                    request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+                replayed:
+                  summary: A same-key retry of a call that succeeded
+                  value:
+                    invocation_id: var_invk_HgD8njwg3gkTca
+                    status: success
+                    replayed: true
+                    output:
+                      rate: 0.92
+                      converted: 92
+                    completed_at: "2026-11-01T10:15:04.212Z"
+                    request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+        "202":
+          $ref: "#/components/responses/InvocationInProgress"
         "400":
           description: |
             The request is malformed, or `input` violates the service's
@@ -239,9 +254,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-              # `examples` (plural) holds several named cases. `example`
-              # (singular) holds one. Note the extra `value:` nesting the
-              # plural form requires; forgetting it is the usual mistake.
               examples:
                 inputSchemaViolation:
                   value:
@@ -257,50 +269,7 @@ paths:
           # the description and body are identical across operations.
           $ref: "#/components/responses/Unauthorized"
         "402":
-          description: |
-            The owner's balance cannot cover this call. The response carries
-            the shortfall and a short-lived funding link already scoped to the
-            owner, so no re-authentication is needed. Retry with the same
-            idempotency key once the balance is topped up.
-
-            On an owner's first paid call, the response also carries
-            `granted_credits`: Varis added a one-time $2 credit that covers
-            the call, so retry straight away.
-          content:
-            application/json:
-              schema:
-                # Spelled out as its own schema rather than an allOf extension
-                # of Error. allOf merges TOP-LEVEL schemas, not nested objects:
-                # two branches each describing `error` produce a schema where
-                # neither branch evaluates the other's properties, and every
-                # field reads as unevaluated.
-                $ref: "#/components/schemas/InsufficientFundsError"
-              examples:
-                short:
-                  summary: The balance is short
-                  value:
-                    error:
-                      code: insufficient_funds
-                      message: The balance does not cover this call.
-                      shortfall_credits: 150
-                      funding_url: https://usevaris.com/fund/t/abc123
-                    request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
-                first_paid_call:
-                  summary: A first paid call, with the free credit added
-                  value:
-                    error:
-                      code: insufficient_funds
-                      message: >-
-                        The available balance is too low for this request. As
-                        this is your first paid invocation, we've added a $2.00
-                        credit to your balance. Retry this invocation with the
-                        same idempotency key to complete the request. When the
-                        task is done, ask the account owner to top up using the
-                        funding_url below. It expires in 30 minutes.
-                      shortfall_credits: 0
-                      funding_url: https://usevaris.com/fund/t/abc123
-                      granted_credits: 20000
-                    request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+          $ref: "#/components/responses/InsufficientFunds"
         "403":
           description: |
             The credential is valid but not permitted. Sending a developer API
@@ -317,55 +286,393 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "409":
-          description: |
-            The idempotency key has already been used against a different
-            service. Returning the other service's recorded outcome would hide
-            a caller bug, so this is an error rather than a replay.
+          $ref: "#/components/responses/InvokeConflict"
+        "410":
+          $ref: "#/components/responses/OutputBurnt"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InvocationInternalError"
+        "502":
+          $ref: "#/components/responses/ProviderFailed"
+        "504":
+          $ref: "#/components/responses/ProviderTimedOut"
 
-            A key reused against the SAME service is not an error: it returns
-            the recorded outcome with its original `request_id`.
+  # ---------------------------------------------------------------------------
+  # One invocation, looked up by its ID. Answers exactly as a same-key retry
+  # of POST /v1/invocations would, so the two can never disagree.
+  # ---------------------------------------------------------------------------
+  /v1/invocations/{invocation_id}:
+    parameters:
+      - $ref: "#/components/parameters/InvocationId"
+    get:
+      operationId: getInvocation
+      summary: Get an invocation
+      description: |
+        Returns the outcome of an earlier call, without running it again or
+        charging: its progress while it runs, its output once it succeeds,
+        or its error if it failed. The answer is the one a same-key retry of
+        `POST /v1/invocations` gets, so `replayed` is always `true` and
+        `request_id` is the original call's.
+
+        Any agent of the same owner can look up the call. Another owner's
+        call is a `404`.
+
+        A lookup counts as a read of the output, and shares the agent's limit
+        of 120 requests a minute with `POST /v1/invocations`.
+      tags: [Gateway]
+      security:
+        - agentKey: []
+      responses:
+        "200":
+          description: The call succeeded.
+          headers:
+            X-Varis-Request-Id:
+              $ref: "#/components/headers/RequestId"
+            X-Varis-Invocation-Id:
+              $ref: "#/components/headers/InvocationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvocationSuccess"
+              examples:
+                success:
+                  summary: A call that succeeded
+                  value:
+                    invocation_id: var_invk_HgD8njwg3gkTca
+                    status: success
+                    replayed: true
+                    output:
+                      rate: 0.92
+                      converted: 92
+                    completed_at: "2026-11-01T10:15:04.212Z"
+                    request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+                outputNotKept:
+                  summary: A call that succeeded before Varis kept outputs
+                  value:
+                    invocation_id: var_invk_HgD8njwg3gkTca
+                    status: success
+                    replayed: true
+                    message: >-
+                      This call succeeded and was charged once. Its output
+                      wasn't cached, so it can't be returned again. Consider
+                      invoking the service again.
+                    completed_at: "2026-10-12T10:15:04.212Z"
+                    request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+        "202":
+          $ref: "#/components/responses/InvocationInProgress"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The credential is valid but isn't an agent key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such invocation, or it belongs to another owner.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
               example:
                 error:
-                  code: conflict
-                  message: This idempotency key was used for a different service.
+                  code: not_found
+                  message: No such invocation.
                 request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+        "410":
+          $ref: "#/components/responses/OutputBurnt"
         "429":
           $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InvocationInternalError"
         "502":
-          description: |
-            The provider failed. Either it returned a non-2xx status
-            (`provider_error`), or it returned output that violates its own
-            declared schema (`schema_violation`). The provider's raw response
-            is never forwarded.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                providerError:
-                  value:
-                    error:
-                      code: provider_error
-                      message: The provider failed to handle the request.
-                    request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
-                    invocation_id: var_invk_JQiIMAapCjpS4t
-                schemaViolation:
-                  value:
-                    error:
-                      code: schema_violation
-                      message: The provider's response does not match its declared output schema.
-                    request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
-                    invocation_id: var_invk_JQiIMAapCjpS4t
+          $ref: "#/components/responses/ProviderFailed"
         "504":
-          description: The provider did not respond within the timeout.
+          $ref: "#/components/responses/ProviderTimedOut"
+
+  # ---------------------------------------------------------------------------
+  # Provider-facing. A provider reports on a call it accepted. The SDK sends
+  # these; a provider without the SDK sends the same JSON by hand.
+  # ---------------------------------------------------------------------------
+  /v1/invocations/{invocation_id}/notifications:
+    parameters:
+      - $ref: "#/components/parameters/InvocationId"
+    post:
+      operationId: sendInvocationNotification
+      summary: Report on a call
+      description: |
+        Tells Varis how a call is going, from the provider's side: `started`,
+        `running`, `completed` with a result, or `failed`. Authenticate with
+        the notification token Varis sent with the call, in the
+        `X-Varis-Notification-Token` header. It works only for that call.
+
+        A provider accepts a call in one of two ways: it answers the call
+        with `202` and `{"status":"started"}`, or it sends a `started`
+        notification before it answers. After a `started` notification, a
+        `2xx` answer, or no answer within 30 seconds, leaves the call
+        running, and a non-`2xx` answer fails it.
+
+        Once accepted, the call fails if Varis receives no notification for
+        300 seconds. Send `running` at least every 30 seconds while the work
+        runs. Every call fails 24 hours after it starts.
+
+        Every answer carries `continue`. `false` means the call is over:
+        stop reporting on it and don't send its result. It never asks you to
+        stop your own work.
+
+        Varis accepts up to 120 notifications a minute for one call.
+      tags: [Provider notifications]
+      security:
+        - notificationToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Notification"
+            examples:
+              started:
+                summary: The call has started
+                value:
+                  status: started
+                  eta_seconds: 600
+                  message: Queued for rendering
+              running:
+                summary: The work is still running
+                value:
+                  status: running
+                  progress_percent: 40
+                  eta_seconds: 360
+                  message: Rendering frame 400 of 1000
+              completed:
+                summary: The call finished with a result
+                value:
+                  status: completed
+                  result:
+                    video_url: https://cdn.example.com/renders/8f1a0c2e.mp4
+              failed:
+                summary: The call failed
+                value:
+                  status: failed
+      responses:
+        "200":
+          description: |
+            Varis recorded the notification. `continue` is `true` after
+            `started` or `running`, and `false` after `completed` or
+            `failed`, or when the call already succeeded.
+          headers:
+            X-Varis-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationAnswer"
+              examples:
+                running:
+                  summary: Keep reporting
+                  value:
+                    continue: true
+                    request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+                ended:
+                  summary: The call is over
+                  value:
+                    continue: false
+                    request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+        "400":
+          description: |
+            The body isn't one of the four shapes. `continue` is `true`: the
+            call goes on, so fix the body and send it again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationAnswer"
+              example:
+                continue: true
+                error:
+                  code: invalid_request
+                  message: The notification body is invalid.
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+        "401":
+          description: |
+            The notification token is missing, invalid, expired, or belongs
+            to another call. `continue` is `false`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationAnswer"
+              example:
+                continue: false
+                error:
+                  code: unauthorized
+                  message: The notification token is missing, invalid, or expired.
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+        "410":
+          description: |
+            The call has already failed, for example after 300 seconds
+            without a notification, or past its 24-hour limit.
+            `error.failure_reason` says why, and `error.code` is the code the
+            agent got. `continue` is `false`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationAnswer"
+              example:
+                continue: false
+                error:
+                  code: provider_error
+                  message: This invocation has already ended.
+                  failure_reason: provider_stopped_reporting
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+        "413":
+          description: |
+            The `completed` result is larger than 4 MB of JSON. The call
+            fails with `output_too_large`, and the agent isn't charged.
+            Return a large result as a URL to your own storage instead.
+            `continue` is `false`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationAnswer"
+              example:
+                continue: false
+                error:
+                  code: provider_error
+                  message: >-
+                    result is larger than 4 MB of JSON. Return a large result
+                    as a URL to your own storage instead.
+                  failure_reason: output_too_large
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+        "422":
+          description: |
+            The `completed` result doesn't match the service's output schema.
+            The call fails with `schema_violation`, and the agent isn't
+            charged. `continue` is `false`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationAnswer"
+              example:
+                continue: false
+                error:
+                  code: schema_violation
+                  message: result does not match the service's output schema.
+                  details:
+                    - path: /video_url
+                      message: must be string
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+        "429":
+          description: |
+            More than 120 notifications a minute for this call. `continue` is
+            `true`: wait for the number of seconds in `Retry-After`.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationAnswer"
+        "500":
+          description: |
+            Varis couldn't record the notification. `continue` is `true`:
+            send it again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationAnswer"
+              example:
+                continue: true
+                error:
+                  code: internal_error
+                  message: Something went wrong. Retry the notification.
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+
+  # ---------------------------------------------------------------------------
+  # DEPRECATED. POST /v1/invocations replaces it, with the same request and
+  # the same responses. Kept running for integrations that already call it.
+  # Every response it sends carries Deprecation and Link headers (RFC 9745).
+  # ---------------------------------------------------------------------------
+  /v1/invoke:
+    post:
+      operationId: invokeDeprecated
+      summary: Invoke a service (deprecated)
+      deprecated: true
+      description: |
+        Use `POST /v1/invocations` instead. This endpoint takes the same
+        request and returns the same responses, and keeps working for
+        integrations that already call it.
+
+        Every response also carries two headers:
+
+        - `Deprecation: @1793491200`: deprecated since 1 November 2026.
+        - `Link: <https://api.usevaris.com/v1/invocations>; rel="successor-version"`.
+      tags: [Gateway]
+      security:
+        - agentKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        $ref: "#/components/requestBodies/Invoke"
+      responses:
+        "200":
+          description: The provider returned output matching its declared schema.
+          headers:
+            X-Varis-Request-Id:
+              $ref: "#/components/headers/RequestId"
+            X-Varis-Invocation-Id:
+              $ref: "#/components/headers/InvocationId"
+            Idempotency-Key:
+              $ref: "#/components/headers/IdempotencyKey"
+            Deprecation:
+              $ref: "#/components/headers/Deprecation"
+            Link:
+              $ref: "#/components/headers/SuccessorLink"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvocationSuccess"
+        "202":
+          $ref: "#/components/responses/InvocationInProgress"
+        "400":
+          description: |
+            The request is malformed, or `input` violates the service's
+            declared input schema.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/InsufficientFunds"
+        "403":
+          description: |
+            The credential is valid but not permitted, or the agent's limits
+            or category scope exclude this service.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such service, or the service is not published.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          $ref: "#/components/responses/InvokeConflict"
+        "410":
+          $ref: "#/components/responses/OutputBurnt"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InvocationInternalError"
+        "502":
+          $ref: "#/components/responses/ProviderFailed"
+        "504":
+          $ref: "#/components/responses/ProviderTimedOut"
 
   # ---------------------------------------------------------------------------
   # One path, two methods. GET searches, POST publishes. They share a URL
@@ -1027,6 +1334,14 @@ components:
       description: |
         The owner the developer is acting for, from varis.json. Only accepted
         when the device token's user is a member of it.
+    notificationToken:
+      type: http
+      scheme: bearer
+      description: |
+        A notification token, prefixed `var_nt_`. Varis sends one with each
+        call to a provider, in the `X-Varis-Notification-Token` header. It
+        reports on that one call only, and expires an hour after the call
+        ends. The SDK sends it for you; never log it.
 
   # ---------------------------------------------------------------------------
   # Reusable REQUEST parameters. Referenced from an operation's `parameters:`.
@@ -1037,13 +1352,23 @@ components:
       in: header
       required: true
       description: |
-        Scoped to the agent. Reusing a key returns the recorded outcome of the
-        first call and does not invoke the provider again. Reusing a key
-        against a different service is a `409`.
+        Scoped to the agent. Reusing a key with the same service and input
+        returns the recorded outcome of the first call and does not invoke
+        the provider again. Reusing a key with a different service or input
+        is a `409`. A key stays reserved while its call runs and for 48 hours
+        after the call ends; after that, it starts a new call.
       schema:
         type: string
         maxLength: 255
       example: 8f1a0c2e-3b4d-4f5a-9c6e-7d8f9a0b1c2d
+    InvocationId:
+      name: invocation_id
+      in: path
+      required: true
+      description: The `invocation_id` from the response that started the call.
+      schema:
+        type: string
+      example: var_invk_HgD8njwg3gkTca
 
   # ---------------------------------------------------------------------------
   # Reusable RESPONSE headers. A different section from `parameters` above
@@ -1054,6 +1379,74 @@ components:
       description: Present on every response, including errors. Quote it in support requests.
       schema:
         type: string
+    InvocationId:
+      description: |
+        The call this response is about. Present on every response that names
+        an invocation.
+      schema:
+        type: string
+    IdempotencyKey:
+      description: |
+        The `Idempotency-Key` the request sent, on every response that names
+        an invocation. Retry with it.
+      schema:
+        type: string
+    RetryAfter:
+      description: |
+        Seconds to wait before asking again: between 5 and 30, from the
+        provider's estimate, or 30 without one.
+      schema:
+        type: integer
+        minimum: 5
+        maximum: 30
+    Deprecation:
+      description: |
+        `@1793491200`: the endpoint was deprecated on 1 November 2026
+        (RFC 9745).
+      schema:
+        type: string
+    SuccessorLink:
+      description: |
+        `<https://api.usevaris.com/v1/invocations>; rel="successor-version"`:
+        the endpoint that replaces this one.
+      schema:
+        type: string
+
+  # ---------------------------------------------------------------------------
+  # Reusable request bodies. POST /v1/invocations and its deprecated alias take
+  # the same one.
+  # ---------------------------------------------------------------------------
+  requestBodies:
+    Invoke:
+      required: true
+      content:
+        # The media type. Everything under it describes a JSON body.
+        application/json:
+          schema:
+            type: object
+            # Fields the caller MUST send. Everything else is optional.
+            # Generators mark non-required fields as optional in TypeScript.
+            required: [service_id]
+            properties:
+              service_id:
+                type: string
+                description: The service to invoke.
+                # Shows up in docs and in the "try it" playground.
+                example: var_serv_ydZfZ9gKKe1tQe
+              input:
+                type: object
+                description: |
+                  Passed to the provider unchanged. Must validate against the
+                  service's `input_schema`. A malformed input fails the
+                  invocation without calling the provider and without
+                  creating a transaction. Leave it out for a service that
+                  takes no input: a missing input is treated as `{}`, and
+                  still has to pass the schema, so a service with required
+                  fields rejects it.
+                # Allows arbitrary keys. Without this, a strict validator
+                # rejects anything not listed under `properties`, and here
+                # the shape is defined by the service, not by Varis.
+                additionalProperties: true
 
   # ---------------------------------------------------------------------------
   # Whole reusable responses: description, headers, and body together.
@@ -1080,6 +1473,221 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+
+    # The outcomes of one invocation. POST /v1/invocations, its deprecated
+    # alias, and GET /v1/invocations/{invocation_id} all answer with these, so
+    # a retry and a lookup can never disagree.
+    InvocationInProgress:
+      description: |
+        The call is still running. Retry with the same `Idempotency-Key`, or
+        call `GET /v1/invocations/{invocation_id}`, after `Retry-After`
+        seconds. Once the provider has accepted the call, the body also
+        carries what the provider last reported.
+      headers:
+        X-Varis-Request-Id:
+          $ref: "#/components/headers/RequestId"
+        X-Varis-Invocation-Id:
+          $ref: "#/components/headers/InvocationId"
+        Retry-After:
+          $ref: "#/components/headers/RetryAfter"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InvocationInProgress"
+          example:
+            invocation_id: var_invk_HgD8njwg3gkTca
+            status: in_progress
+            progress_percent: 40
+            estimated_completion_at: "2026-11-01T10:27:00.000Z"
+            eta_in: about 12 minutes
+            provider_message: Rendering frame 400 of 1000
+            retry_after_seconds: 30
+            instruction: >-
+              This call is still running. Retry POST /v1/invocations with the
+              same service_id, input, and Idempotency-Key, or call GET
+              /v1/invocations/var_invk_HgD8njwg3gkTca, after
+              retry_after_seconds. Once returned, the output can be fetched
+              again for one hour.
+            request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+    InsufficientFunds:
+      description: |
+        The owner's balance cannot cover this call. The response carries
+        the shortfall and a short-lived funding link already scoped to the
+        owner, so no re-authentication is needed. Retry with the same
+        idempotency key once the balance is topped up.
+
+        On an owner's first paid call, the response also carries
+        `granted_credits`: Varis added a one-time $2 credit that covers
+        the call, so retry straight away.
+      content:
+        application/json:
+          schema:
+            # Spelled out as its own schema rather than an allOf extension
+            # of Error. allOf merges TOP-LEVEL schemas, not nested objects:
+            # two branches each describing `error` produce a schema where
+            # neither branch evaluates the other's properties, and every
+            # field reads as unevaluated.
+            $ref: "#/components/schemas/InsufficientFundsError"
+          examples:
+            short:
+              summary: The balance is short
+              value:
+                error:
+                  code: insufficient_funds
+                  message: The balance does not cover this call.
+                  shortfall_credits: 150
+                  funding_url: https://usevaris.com/fund/t/abc123
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+            first_paid_call:
+              summary: A first paid call, with the free credit added
+              value:
+                error:
+                  code: insufficient_funds
+                  message: >-
+                    The available balance is too low for this request. As
+                    this is your first paid invocation, we've added a $2.00
+                    credit to your balance. Retry this invocation with the
+                    same idempotency key to complete the request. When the
+                    task is done, ask the account owner to top up using the
+                    funding_url below. It expires in 30 minutes.
+                  shortfall_credits: 0
+                  funding_url: https://usevaris.com/fund/t/abc123
+                  granted_credits: 20000
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+    InvokeConflict:
+      description: |
+        `conflict`: the idempotency key was already used for a different
+        service or a different input. Returning the other call's outcome
+        would hide a caller bug, so this is an error rather than a replay.
+
+        `service_not_invocable`: the service is disabled.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            conflict:
+              value:
+                error:
+                  code: conflict
+                  message: This idempotency key was already used for a different service or input.
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+            serviceNotInvocable:
+              value:
+                error:
+                  code: service_not_invocable
+                  message: This service is not published and cannot be invoked.
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+    OutputBurnt:
+      description: |
+        The call succeeded, and its output has been deleted. Varis keeps an
+        output for one hour after it's first returned, or 24 hours after the
+        call ends if it's never returned. `completed_at` says when the call
+        ran. To run it again, use a new idempotency key; that call is charged.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: output_burnt
+              message: >-
+                This call completed at 2026-11-01T10:15:04.212Z. Its output has
+                been deleted: Varis keeps an output for an hour after it's
+                first returned, or 24 hours if it's never read. To run the call
+                again, use a new idempotency key. You'll be charged again.
+            request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+            invocation_id: var_invk_HgD8njwg3gkTca
+            replayed: true
+            completed_at: "2026-11-01T10:15:04.212Z"
+    InvocationInternalError:
+      description: |
+        Something went wrong on Varis's side. If the message says you weren't
+        charged, Varis failed before it called the provider.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: internal_error
+              message: >-
+                Something went wrong on Varis's side before the provider was
+                called. You weren't charged.
+            request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+            invocation_id: var_invk_JQiIMAapCjpS4t
+    ProviderFailed:
+      description: |
+        The provider failed, and the agent isn't charged. `provider_error`:
+        it returned a non-2xx status, an output larger than 4 MB of JSON, or
+        stopped reporting on a call it accepted for 300 seconds.
+        `schema_violation`: it returned output that violates its own declared
+        schema. The provider's raw response is never forwarded.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            providerError:
+              value:
+                error:
+                  code: provider_error
+                  message: The provider failed to handle the request.
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+                invocation_id: var_invk_JQiIMAapCjpS4t
+            stoppedReporting:
+              value:
+                error:
+                  code: provider_error
+                  message: >-
+                    The provider stopped responding while running this call.
+                    You weren't charged. The provider has been told to stop
+                    the job.
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+                invocation_id: var_invk_JQiIMAapCjpS4t
+            outputTooLarge:
+              value:
+                error:
+                  code: provider_error
+                  message: >-
+                    The provider returned an output larger than Varis can
+                    deliver. You weren't charged.
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+                invocation_id: var_invk_JQiIMAapCjpS4t
+            schemaViolation:
+              value:
+                error:
+                  code: schema_violation
+                  message: The provider returned output that does not match its schema.
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+                invocation_id: var_invk_JQiIMAapCjpS4t
+    ProviderTimedOut:
+      description: |
+        The provider didn't give its first answer within 30 seconds, or a
+        call it accepted didn't finish within 24 hours. The agent isn't
+        charged. A provider that timed out on its first answer may still have
+        finished the work.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            firstAnswer:
+              value:
+                error:
+                  code: timeout
+                  message: The provider did not respond in time.
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+                invocation_id: var_invk_JQiIMAapCjpS4t
+            deadline:
+              value:
+                error:
+                  code: timeout
+                  message: >-
+                    The provider didn't finish within 24 hours. You weren't
+                    charged. The provider has been told to stop the job.
+                request_id: var_req_fc8e8702-6a7f-4f3f-9147-748936e5fee1
+                invocation_id: var_invk_JQiIMAapCjpS4t
 
   # ---------------------------------------------------------------------------
   # schemas: data shapes. The section that becomes your TypeScript types.
@@ -1395,7 +2003,7 @@ components:
       type: string
       description: |
         How Varis calls your `endpoint_url`. Agents always call Varis with
-        `POST /v1/invoke`; this is the request your endpoint receives.
+        `POST /v1/invocations`; this is the request your endpoint receives.
 
         `GET` sends the validated input as a query string, in sorted key order,
         with the key repeated for each array item, and no body. Numbers and
@@ -1432,6 +2040,8 @@ components:
                 - forbidden
                 - not_found
                 - conflict
+                - output_burnt
+                - service_not_invocable
                 - insufficient_funds
                 - rate_limited
                 - provider_error
@@ -1457,7 +2067,241 @@ components:
           $ref: "#/components/schemas/RequestId"
         invocation_id:
           type: string
-          description: Present when the failure occurred after the invocation was accepted.
+          description: Present when the error is about an invocation that exists.
+        replayed:
+          type: boolean
+          enum: [true]
+          description: |
+            Present when the error repeats an earlier call's recorded outcome:
+            a same-key retry or a lookup.
+        completed_at:
+          type: string
+          format: date-time
+          description: Present on `output_burnt`. When the call ran.
+
+    # The 200 for an invocation. `output` is absent only when `message` says
+    # why: the call succeeded before Varis kept outputs.
+    InvocationSuccess:
+      type: object
+      required: [request_id, invocation_id, status, completed_at]
+      properties:
+        request_id:
+          # A $ref inside properties: reuse one definition everywhere
+          # the field appears, so changing it changes all of them.
+          $ref: "#/components/schemas/RequestId"
+        invocation_id:
+          type: string
+          example: var_invk_HgD8njwg3gkTca
+        status:
+          type: string
+          enum: [success]
+        output:
+          type: object
+          description: The provider's response, verbatim.
+          additionalProperties: true
+        completed_at:
+          type: string
+          format: date-time
+        replayed:
+          type: boolean
+          enum: [true]
+          description: |
+            Present when the response repeats an earlier call's outcome: a
+            same-key retry or a lookup. `request_id` is then the original
+            call's.
+        message:
+          type: string
+          description: |
+            Present instead of `output` when Varis didn't keep the output, so
+            it can't be returned again. The call was charged once.
+
+    # The 202 for a call still running. The provider fields appear once the
+    # provider has accepted the call, each null until the provider sets it.
+    InvocationInProgress:
+      type: object
+      required:
+        [request_id, invocation_id, status, retry_after_seconds, instruction]
+      properties:
+        request_id:
+          $ref: "#/components/schemas/RequestId"
+        invocation_id:
+          type: string
+          example: var_invk_HgD8njwg3gkTca
+        status:
+          type: string
+          enum: [in_progress]
+        replayed:
+          type: boolean
+          enum: [true]
+          description: Present on a same-key retry or a lookup.
+        progress_percent:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 100
+          description: The provider's last reported progress.
+        estimated_completion_at:
+          type: [string, "null"]
+          format: date-time
+          description: When the provider expects to finish.
+        eta_in:
+          type: [string, "null"]
+          description: |
+            The time left, in words, such as "about 12 minutes", or "past the
+            provider's estimate" once that time has gone by.
+        provider_message:
+          type: [string, "null"]
+          maxLength: 160
+          description: The provider's last message about the call, in plain text.
+        retry_after_seconds:
+          type: integer
+          minimum: 5
+          maximum: 30
+          description: Seconds to wait before asking again. Matches `Retry-After`.
+        instruction:
+          type: string
+          description: How to ask again, in words an agent can follow.
+
+    # A provider's notification, discriminated on `status`.
+    Notification:
+      oneOf:
+        - $ref: "#/components/schemas/StartedNotification"
+        - $ref: "#/components/schemas/RunningNotification"
+        - $ref: "#/components/schemas/CompletedNotification"
+        - $ref: "#/components/schemas/FailedNotification"
+      discriminator:
+        propertyName: status
+        mapping:
+          started: "#/components/schemas/StartedNotification"
+          running: "#/components/schemas/RunningNotification"
+          completed: "#/components/schemas/CompletedNotification"
+          failed: "#/components/schemas/FailedNotification"
+
+    StartedNotification:
+      type: object
+      required: [status]
+      description: |
+        The call has started and will finish later. Sent before the provider
+        answers the call, it accepts the call. Sent later, it counts as
+        `running`.
+      properties:
+        status:
+          type: string
+          enum: [started]
+        eta_seconds:
+          $ref: "#/components/schemas/EtaSeconds"
+        message:
+          $ref: "#/components/schemas/ProviderMessage"
+
+    RunningNotification:
+      type: object
+      required: [status]
+      description: The work is still running. Send one at least every 30 seconds.
+      properties:
+        status:
+          type: string
+          enum: [running]
+        progress_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        eta_seconds:
+          $ref: "#/components/schemas/EtaSeconds"
+        message:
+          $ref: "#/components/schemas/ProviderMessage"
+
+    CompletedNotification:
+      type: object
+      required: [status, result]
+      description: The call finished. Varis checks `result` and settles the call.
+      properties:
+        status:
+          type: string
+          enum: [completed]
+        result:
+          description: |
+            The output, which must match the service's output schema and be
+            at most 4 MB of JSON.
+
+    FailedNotification:
+      type: object
+      required: [status]
+      description: The call failed. Varis refunds the agent.
+      properties:
+        status:
+          type: string
+          enum: [failed]
+        message:
+          type: string
+          description: Recorded in Varis's logs. Agents never see it.
+        reason:
+          type: string
+          enum: [output_too_large]
+          description: |
+            Set when the result is larger than 4 MB of JSON, so the call fails
+            with `output_too_large` instead of `provider_error`.
+
+    EtaSeconds:
+      type: integer
+      minimum: 0
+      maximum: 86400
+      description: |
+        Seconds until the provider expects to finish. Varis shows agents the
+        time it works out from this.
+
+    ProviderMessage:
+      type: string
+      description: |
+        A plain-text message about the call, shown to agents. Varis cuts it to
+        160 characters.
+
+    # Every answer to a notification. `continue: false` means the call is over.
+    NotificationAnswer:
+      type: object
+      required: [continue, request_id]
+      properties:
+        continue:
+          type: boolean
+          description: |
+            `false` when the call is over: stop reporting on it, and don't send
+            its result. Never an instruction to stop your own work.
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - invalid_request
+                - unauthorized
+                - rate_limited
+                - provider_error
+                - schema_violation
+                - timeout
+                - internal_error
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  path:
+                    type: string
+                  message:
+                    type: string
+            failure_reason:
+              type: string
+              description: On a `410` or `413`, why the call failed.
+              enum:
+                - provider_error
+                - timeout
+                - schema_violation
+                - gateway_error
+                - provider_stopped_reporting
+                - deadline_exceeded
+                - output_too_large
+        request_id:
+          $ref: "#/components/schemas/RequestId"
 
     # The 402 body. Everything an agent needs to recover without a human:
     # how short it is, and where to top up. The funding link is already scoped
@@ -1871,7 +2715,7 @@ components:
       properties:
         id:
           type: string
-          description: Pass this to `/v1/invoke`, not the slug.
+          description: Pass this to `/v1/invocations`, not the slug.
           example: var_serv_ydZfZ9gKKe1tQe
         slug:
           type: string
@@ -1918,7 +2762,7 @@ components:
         method:
           allOf:
             - $ref: "#/components/schemas/ServiceMethod"
-          # Conditional, like endpoint_url: agents always POST /v1/invoke, so
+          # Conditional, like endpoint_url: agents always POST /v1/invocations, so
           # how the gateway reaches the provider is none of their business.
           description: Returned only to the service's own owner.
         created_at:
