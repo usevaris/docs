@@ -43,3 +43,17 @@ export const docsLlms = llms(source, {
 ${body}`;
   },
 });
+
+/**
+ * The newest year's changelog page, such as /changelog/2026. /changelog
+ * redirects here. Each year is a page in content/docs/changelog named by
+ * its year, so the newest is the highest year that has a page, whatever
+ * today's date.
+ */
+export function latestChangelogUrl(): string | undefined {
+  const years = source
+    .getPages()
+    .filter((page) => page.slugs.length === 2 && page.slugs[0] === 'changelog' && /^\d{4}$/.test(page.slugs[1]))
+    .sort((a, b) => Number(b.slugs[1]) - Number(a.slugs[1]));
+  return years[0]?.url;
+}
