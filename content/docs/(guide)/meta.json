@@ -1,5 +1,6 @@
 {
-  "title": "User Guide",
+  "title": "Guide",
+  "icon": "BookOpen",
   "root": true,
   "pages": [
     "---Get started---",

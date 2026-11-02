@@ -7,25 +7,45 @@ import { ChevronsUpDown } from 'lucide-react';
 
 export interface Section {
   title: ReactNode;
+  /** From the section's meta.json `icon`, a Lucide icon name. */
+  icon?: ReactNode;
   url: string;
 }
 
 /**
- * Switches between the docs' sections (User Guide, API Reference), each a
- * root folder in content/docs. Not a dropdown: it expands in place, pushing
- * the sidebar down, with the current section always first. Picking another
- * navigates there, which makes it the first row, and the list closes.
+ * The section a page is in: the one whose URL is the longest prefix of the
+ * page's, so /reference/invoke is in API Reference, not in the guide at /.
+ * A section's URL is its first page, so /changelog/2026 counts as its folder.
+ */
+export function currentSection(sections: Section[], pathname: string): Section | undefined {
+  return sections
+    .filter((s) => {
+      const folder = sectionFolder(s.url);
+      return folder === '/' || pathname === folder || pathname.startsWith(`${folder}/`);
+    })
+    .sort((a, b) => sectionFolder(b.url).length - sectionFolder(a.url).length)[0] ?? sections[0];
+}
+
+// The first path segment: /reference/invoke is in /reference. The guide's
+// pages sit at the root, so its section is /.
+function sectionFolder(url: string): string {
+  const segment = url.split('/')[1];
+  return segment ? `/${segment}` : '/';
+}
+
+/**
+ * Switches between the docs' sections (Guide, API Reference, Changelog), each
+ * a root folder in content/docs. Below md only: from md up, the tab bar in
+ * components/docs-header.tsx does this. Not a dropdown: it expands in place,
+ * pushing the sidebar down, with the current section always first. Picking
+ * another navigates there, which makes it the first row, and the list closes.
  */
 export function SectionSwitcher({ sections }: { sections: Section[] }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // The current section is the one whose URL is the longest prefix of the
-  // page's, so /reference/invoke is in API Reference, not in the guide at /.
-  const current = sections
-    .filter((s) => s.url === '/' || pathname === s.url || pathname.startsWith(`${s.url}/`))
-    .sort((a, b) => b.url.length - a.url.length)[0] ?? sections[0];
+  const current = currentSection(sections, pathname);
   const others = sections.filter((s) => s !== current);
 
   // Close on Escape or a click anywhere else.
@@ -48,7 +68,7 @@ export function SectionSwitcher({ sections }: { sections: Section[] }) {
   if (!current) return null;
 
   return (
-    <div ref={ref}>
+    <div ref={ref} className="docs-section-switcher">
       <div className="border border-(--line-strong) bg-[color-mix(in_srgb,var(--fg)_3%,var(--surface))] p-0.5 text-sm">
         <button
           type="button"

@@ -22,8 +22,6 @@ export default async function Page(props: PageProps<'/[[...slug]]'>) {
   const page = source.getPage(params.slug);
   if (!page) notFound();
 
-  // From md up, the breadcrumb lives in the panel's topbar.
-  const breadcrumb = { className: 'md:hidden' };
   const footer = { component: <PageFooter {...findNeighbour(source.getPageTree(), page.url)} /> };
 
   // API reference pages come from openapi.yaml, not from MDX files. The
@@ -33,7 +31,6 @@ export default async function Page(props: PageProps<'/[[...slug]]'>) {
     return (
       <DocsPanel>
         <DocsPage
-          breadcrumb={breadcrumb}
           footer={footer}
           tableOfContent={{ enabled: false }}
           tableOfContentPopover={{ enabled: false }}
@@ -54,7 +51,6 @@ export default async function Page(props: PageProps<'/[[...slug]]'>) {
     <DocsPanel>
       <DocsPage
         toc={page.data.toc}
-        breadcrumb={breadcrumb}
         footer={footer}
         full={page.data.full}
       >

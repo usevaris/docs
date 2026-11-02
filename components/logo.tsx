@@ -8,7 +8,7 @@ export function Logo() {
   return (
     <span className="inline-flex items-center gap-2 my-2">
       <Image src={mark} alt="Varis" width={22} height={22} />
-      <span className="text-[1.25rem] font-medium text-fd-foreground">Docs</span>
+      <span className="text-[1.25rem] font-semibold text-fd-foreground">Docs</span>
     </span>
   );
 }
