@@ -1,4 +1,4 @@
-import { source } from '@/lib/source';
+import { latestChangelogUrl, source } from '@/lib/source';
 import {
   DocsBody,
   DocsDescription,
@@ -7,7 +7,7 @@ import {
   MarkdownCopyButton,
   ViewOptionsPopover,
 } from 'fumadocs-ui/layouts/docs/page';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getMDXComponents, Link } from '@/components/mdx';
 import { OpenAPIPage } from '@/components/api-page';
 import { DocsPanel } from '@/components/docs-panel';
@@ -19,11 +19,8 @@ import { getPageMarkdownUrl, githubUrl } from '@/lib/shared';
 
 export default async function Page(props: PageProps<'/[[...slug]]'>) {
   const params = await props.params;
-  const page = source.getPage(params.slug);
-  if (!page) notFound();
+  const page = getPageOrRedirect(params.slug);
 
-  // From md up, the breadcrumb lives in the panel's topbar.
-  const breadcrumb = { className: 'md:hidden' };
   const footer = { component: <PageFooter {...findNeighbour(source.getPageTree(), page.url)} /> };
 
   // API reference pages come from openapi.yaml, not from MDX files. The
@@ -33,7 +30,6 @@ export default async function Page(props: PageProps<'/[[...slug]]'>) {
     return (
       <DocsPanel>
         <DocsPage
-          breadcrumb={breadcrumb}
           footer={footer}
           tableOfContent={{ enabled: false }}
           tableOfContentPopover={{ enabled: false }}
@@ -54,7 +50,6 @@ export default async function Page(props: PageProps<'/[[...slug]]'>) {
     <DocsPanel>
       <DocsPage
         toc={page.data.toc}
-        breadcrumb={breadcrumb}
         footer={footer}
         full={page.data.full}
       >
@@ -86,11 +81,22 @@ export async function generateStaticParams() {
 
 export async function generateMetadata(props: PageProps<'/[[...slug]]'>): Promise<Metadata> {
   const params = await props.params;
-  const page = source.getPage(params.slug);
-  if (!page) notFound();
+  const page = getPageOrRedirect(params.slug);
 
   return {
     title: page.data.title,
     description: page.data.description,
   };
+}
+
+// The page at `slug`. /changelog has no page of its own: it redirects to the
+// newest year's entries.
+function getPageOrRedirect(slug: string[] | undefined) {
+  const page = source.getPage(slug);
+  if (page) return page;
+  if (slug?.join('/') === 'changelog') {
+    const url = latestChangelogUrl();
+    if (url) redirect(url);
+  }
+  notFound();
 }

@@ -105,12 +105,12 @@ Publishing your first service also adds a $2 free credit to your balance, so you
 Before you take real traffic, make sure your endpoint answers requests from Varis. Add one check at the top of your handler:
 
 ```ts tab="TypeScript" tab-group="varis-docs-language"
-if (!(await varis.verifyRequest(request))) {
+if (!(await varis.requests.verify(request))) {
   return new Response("Unauthorized", { status: 401 });
 }
 ```
 
-`verifyRequest` accepts a Web `Request` or a Node.js `req`, so it works in Next.js, Express, Hono, and most other frameworks. 
+`varis.requests.verify` accepts a Web `Request` or a Node.js `req`, so it works in Next.js, Express, Hono, and most other frameworks. 
 
 If you published from the dashboard, install `@usevaris/sdk` and create `const varis = new Varis()` first. You can verify requests from Varis using the SDK.
 

@@ -1,0 +1,204 @@
+---
+title: Handle long-running tasks
+description: Let a call take longer than 30 seconds, by doing the work on your server or in a queue worker, and reporting the result to Varis when it's ready.
+---
+
+## The reasoning (that is TLDR)
+
+Varis waits 30 seconds for your endpoint's answer, then it closes the connection. 
+
+If your service takes longer, send a quick notification back to Varis before the connection closes. The first notification should include `{"status": "started"}`. This tells Varis that the task will take longer than 30 seconds, so it keeps the agent on hold while it waits for the finished result.
+
+In between the first notification (that is `{"status": "started"}`) and the result, Varis needs routine reassurances that the task is still running. So at intervals, send a notification to Varis with `{"status": "running"}`. We recommend sending this notification at least every 30 seconds.
+
+If Varis doesn't get a notification for a running task after 5 minutes, it infers that the server stopped and closes the transaction without charging the agent.
+
+The SDK handles this, out of the box, by wrapping the executable task in a VarisRequestHandler. The handler lets requests that aren't from Varis, such as those from signed in users, pass through unchanged. So, your code behaviour stays as is.
+
+<Callout title="Not a TypeScript project?">
+Report on long-running tasks by hand. For more information, see [Report on long-running tasks without an SDK](/sdks/other-languages#report-on-long-running-tasks-without-an-sdk).
+</Callout>
+
+<Callout type="warn">
+Every task gets a 24-hour deadline. Varis closes the transaction if a finished result is not returned before the deadline. Multi-day tasks are not supported at this time.
+</Callout>
+
+## Before you begin
+
+- Install `@usevaris/sdk` 1.2.0 or later.
+- Verify requests with `varis.requests.verify`. For more information, see [Handle requests](/publish/handle-requests).
+
+## How a long-running task works with the SDK
+
+1. Varis calls your endpoint, as it does for every call.
+1. If your endpoint hasn't finished the task after 20 seconds, the SDK sends the first notification to Varis that the call has started, so Varis keeps the transaction open.
+1. While the task runs, the SDK notifies Varis every 30 seconds.
+1. When the task ends, the SDK sends its output to Varis. A `2xx` JSON response is the result. Any other answer, or a thrown error, fails the transaction, and the agent isn't charged.
+
+A long-running task fails, and the agent isn't charged, in any of these cases:
+
+1. Varis doesn't receive a notification for 5 minutes. In this case, Varis infers that your server stopped.
+1. The call hasn't finished 24 hours after it started. Every task gets a 24-hour deadline.
+1. The result is larger than 4 MB of JSON, or doesn't match your output schema.
+
+If the transaction ends, for any reason, the SDK stops notifying Varis and the output of the task is not delivered to Varis. If the task is still running on your server, it'll continue. The SDK doesn't touch any aspect of your operation.
+
+## The VarisRequestHandler
+
+The SDK ships with four VarisRequestHandler methods. 
+
+### `.verify`
+Verifies that the request was signed by Varis. Returns true if the signature is valid. For more, see [Verify the request](/publish/handle-requests#verify-the-request).
+
+### `.handleOnServer`
+Use this method if the task runs on the server that receives the request.
+
+This handler runs the operation you pass into it. So, pass a function call (`handleTask()`), not a reference (`handleTask`).
+
+If the request is signed by Varis, the method sends the first notification to Varis with `{"status": "started"}` after 20 seconds of starting. If the task completes within the 20-second window, it sends the outcome back to Varis and calls it a day.
+
+If the task continues past that 20-second window, it sends a notification to Varis every 30 seconds with `{"status": "running"}`.
+
+If the request is not signed by Varis, the operation (`handleTask()`) runs like it normally would.
+
+<Tabs items={['Next.js', 'Express']}>
+<Tab value="Next.js">
+
+```ts title="app/api/render/route.ts"
+import { Varis } from "@usevaris/sdk";
+
+export const maxDuration = 300; // On Vercel: up to your plan's limit.
+
+const varis = new Varis();
+
+export async function POST(request: Request) {
+  const isVaris = await varis.requests.verify(request);
+  const isUser = await authoriseUser(request.headers.get("authorization"));
+  if (!isUser && !isVaris) {
+    return Response.json({ message: "Unauthorised" }, { status: 401 });
+  }
+
+  // Before Varis:
+  // return renderVideo(request);
+
+  // Now. The outcome is the same.
+  return varis.requests.handleOnServer(request, renderVideo(request));
+}
+```
+
+Before Varis, the last line was `return renderVideo(request);`.
+
+Replace `authoriseUser` with however your route checks its users today.
+
+</Tab>
+<Tab value="Express">
+
+```ts title="routes/render.ts"
+import { Varis } from "@usevaris/sdk";
+
+const varis = new Varis();
+
+router.post("/render", async (req, res) => {
+  const isVaris = await varis.requests.verify(req);
+  const isUser = await authoriseUser(req.headers.authorization);
+  if (!isUser && !isVaris) {
+    return res.status(401).json({ message: "Unauthorised" });
+  }
+
+  // Before Varis:
+  // return renderController(req, res);
+
+  // Now. The outcome is the same.
+  return varis.requests.handleOnServer(req, renderController(req, res));
+});
+```
+
+Before Varis, the last line was `return renderController(req, res);`. 
+
+Replace `authoriseUser` with however your route checks its users today.
+
+When your controller calls `res.json`, the SDK sends that response to Varis as the outcome of the task. Once Varis receives this final outcome, it closes the transaction and the agent is charged.
+
+</Tab>
+</Tabs>
+
+`handleOnServer` stops its background task when the executable function returns or throws. It treats whatever is returned as the final result. So, if your service runs on servers that return early by default (like AWS Lambda), use a worker queue instead.
+
+### `.delegateToWorker`
+Use this method to extract the notification details when queuing the task. This is one of the two methods used when the server hands off the task to a worker. 
+
+```ts title="routes/render.ts"
+import { Varis } from "@usevaris/sdk";
+
+const varis = new Varis();
+
+router.post("/render", async (req, res) => {
+  // ...verify signature and validate user, return 401 if both fail.
+
+  await queue.add("render", {
+    input: req.body,
+    // returns null for requests not signed by Varis.
+    varisCredentials: await varis.requests.delegateToWorker(req),
+  });
+
+  res.json({ queued: true }); // Varis ignores it.
+});
+```
+
+This method does two things: 
+
+1. It sends the first notification to Varis with `{"status": "started"}`.
+1. It extracts the credentials needed to continue the notification inside the worker. 
+
+Remember that Varis ends the transaction if it receives no notification for 5 minutes. This method sends the first notification, giving the worker about 5 minutes to pick up the task from queue.
+
+### `.handleInWorker`
+
+This method compliments `.delegateToWorker(req)` by actually handling the task inside the worker. Its behaviour is similar to the `handleOnServer` method.
+
+In the worker, pass the notification credentials and the task to `handleInWorker`, like this:
+
+```ts title="workers/render.ts"
+worker.process("render", (job) =>
+  varis.requests.handleInWorker(
+    // passed from delegateToWorker, null if not VarisRequest.
+    job.data.varisCredentials, 
+    // the task to be executed.
+    () => handleRender(job.data.input)
+  ),
+);
+```
+
+`handleInWorker` notifies Varis as soon as the task is picked up from the queue and then every 30 seconds while it runs. It then sends the job's return output as final result, or fails the call if the job throws. 
+
+This method returns the value, or rethrows the error, so your worker's behaviour is unchanged. 
+
+For requests not signed by Varis, the credential is either `null` or missing. This could be for a job your own users queued. The handler runs the job like before.
+
+### A few things to keep in mind
+
+- **Let `delegateToWorker` errors fail the route.** It throws when it can't reach Varis, or when the transaction has already ended and the agent has been refunded. Continuing queues and runs the task unpaid. Since some tasks carry consequences (like emails sent), we recommend killing the operation when `delegateToWorker` throws.
+- **Call `delegateToWorker` within 30 seconds** of the request arriving. Varis expects a result or an acknowledgement within 30 seconds, `delegateToWorker` sends the latter.
+- **Put the credentials in the queue message, never the request.** The credentials are plain JSON. Raw requests are too volatile for queuing systems, most of which only accept plain JSON (for example, Redis).
+- **Start the job within 5 minutes.** A job that waits longer in the queue fails, because Varis stops waiting for a notification after 5 minutes.
+
+## Results
+
+A long-running task's result follows the same rules as any other:
+
+- It must match your output schema.
+- It must be 4 MB of JSON or less. For a larger result, return a URL to your own storage instead. The SDK fails a result larger than 4 MB, and the agent isn't charged.
+
+<Callout type="warn">
+For privacy reasons, Varis never sees the body of a response that fails, or a thrown error. It reports it as `provider_error`, so rely on your own logs for debugging.
+</Callout>
+
+## Limits
+
+- **Keep the event loop free.** The SDK sends notifications to Varis from a timer in the same process. An operation that blocks the event loop for 5 minutes, such as a long, CPU-heavy loop, stops the notification timer, and the call fails. Run CPU-heavy work in a worker thread or another process.
+- **Use `handleOnServer` with Web-style or Express-style work only.** Web-style work resolves to a `Response`, as in Next.js, Hono, Bun, and Deno. Express-style work writes to `res`. With Fastify, Koa, or any other Node.js framework, use `delegateToWorker` and `handleInWorker`.
+
+## What's next
+
+- [TypeScript SDK](/sdks/typescript).
+- [Discover and invoke services](/use/invoke#follow-a-call-that-takes-longer): what the agent sees while the call runs.

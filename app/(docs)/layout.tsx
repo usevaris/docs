@@ -4,49 +4,57 @@ import { getLayoutTabs } from "fumadocs-ui/layouts/shared";
 import type * as PageTree from "fumadocs-core/page-tree";
 import { MethodBadge } from "@/components/method-badge";
 import { DashboardLink } from "@/components/dashboard-link";
+import { DocsHeader } from "@/components/docs-header";
 import { Logo } from "@/components/logo";
 import { SectionSwitcher } from "@/components/section-switcher";
 import { githubUrl } from "@/lib/shared";
 
 export default function Layout({ children }: LayoutProps<"/">) {
   const tree = source.getPageTree();
-  // Each root folder in content/docs is a section: User Guide, API Reference.
-  const sections = getLayoutTabs(tree).map(({ title, url }) => ({ title, url }));
+  // Each root folder in content/docs is a section: Guide, API Reference,
+  // Changelog. From md up they're tabs in the header; below md, the section
+  // switcher at the top of the drawer. The transform keeps each icon bare:
+  // Fumadocs' default wraps it in a box sized for its own dropdown.
+  const sections = getLayoutTabs(tree, { transform: (tab) => tab }).map(
+    ({ title, icon, url }) => ({ title, icon, url }),
+  );
 
   return (
-    <DocsLayout
-      tree={sidebarTree(tree)}
-      nav={{
-        title: <Logo key="title" />,
-        url: "/",
-        // Below md, the Dashboard button in Fumadocs' header. From md up the
-        // panel's topbar has its own, and global.css hides this copy where
-        // Fumadocs also renders it, in the sidebar.
-        children: (
-          <div key="dashboard" className="docs-dashboard-link flex justify-end pe-1">
-            <DashboardLink />
-          </div>
-        ),
-      }}
-      githubUrl={githubUrl}
-      // The section switcher replaces Fumadocs' dropdown. The sidebar still
-      // shows only the current section's pages.
-      tabs={false}
-      sidebar={{ banner: <SectionSwitcher key="sections" sections={sections} /> }}
-      // From md up, components/docs-panel.tsx shows the sidebar toggle,
-      // search, GitHub, and the theme switch in its topbar, and global.css
-      // hides the sidebar's copies. Below md they stay in Fumadocs' header
-      // and drawer.
-      themeSwitch={{ enabled: true, mode: "light-dark-system" }}
-    >
-      {children}
-    </DocsLayout>
+    <>
+      <DocsHeader sections={sections} />
+      <DocsLayout
+        tree={sidebarTree(tree)}
+        nav={{
+          title: <Logo key="title" />,
+          url: "/",
+          // Below md, the Dashboard button in Fumadocs' header. From md up
+          // #docs-header has its own, and global.css hides this copy where
+          // Fumadocs also renders it, in the sidebar.
+          children: (
+            <div key="dashboard" className="docs-dashboard-link flex justify-end pe-1">
+              <DashboardLink />
+            </div>
+          ),
+        }}
+        githubUrl={githubUrl}
+        // The section switcher replaces Fumadocs' dropdown. The sidebar still
+        // shows only the current section's pages.
+        tabs={false}
+        sidebar={{ banner: <SectionSwitcher key="sections" sections={sections} /> }}
+        // From md up, components/docs-header.tsx shows the logo, search,
+        // GitHub, and the theme switch, and global.css hides the sidebar's
+        // copies. Below md they stay in Fumadocs' header and drawer.
+        themeSwitch={{ enabled: true, mode: "light-dark-system" }}
+      >
+        {children}
+      </DocsLayout>
+    </>
   );
 }
 
-// The sidebar's view of the tree, which the topbar's breadcrumb shares:
+// The sidebar's view of the tree, which the page's breadcrumb shares:
 //
-// - Each section's index page (User Guide's, the API Reference Overview)
+// - Each section's index page (the Guide's, the API Reference Overview)
 //   sits outside the section's children, so the sidebar would skip it. It
 //   goes first in the list instead, or just after a leading separator.
 // - Names truncate on one line. Sidebar items lay a name out as bare text in

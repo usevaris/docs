@@ -2,7 +2,7 @@ import { dashboardUrl } from '@/lib/shared';
 
 /**
  * Opens the Varis app. The brand's primary button: signal orange with
- * graphite text, square, sized to the topbar's controls.
+ * graphite text, square, sized to the header's controls.
  */
 export function DashboardLink({ className = '' }: { className?: string }) {
   return (

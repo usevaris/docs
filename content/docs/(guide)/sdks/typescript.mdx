@@ -1,14 +1,17 @@
 ---
 title: TypeScript
-description: Declare Varis services and verify Varis requests in TypeScript and JavaScript with @usevaris/sdk.
+description: Declare Varis services, verify Varis requests, and handle long-running tasks in TypeScript and JavaScript with @usevaris/sdk.
 ---
 
-`@usevaris/sdk` does two things in your code:
+`@usevaris/sdk` does three things in your code:
 
 - **Declares your services** with `varis.services.define`, so the CLI can publish them.
-- **Verifies requests from Varis** with `varis.verifyRequest`, so your endpoint answers requests from Varis.
+- **Verifies requests from Varis** with `varis.requests.verify`, so your endpoint answers requests from Varis.
+- **Handles long-running tasks** with `varis.requests.handleOnServer`, `varis.requests.delegateToWorker`, and `varis.requests.handleInWorker`, so a call can take longer than 30 seconds.
 
-It's small, it has no runtime dependencies, and it never sends your data anywhere.
+It's small, and it has no runtime dependencies. It sends data only to Varis, and only for long-running tasks. The data sent includes the task's progress and its result.
+
+This page describes version 1.2.0.
 
 ## Requirements
 
@@ -64,6 +67,7 @@ You rarely need these. They exist for testing.
 | `keysUrl` | `string` | The Varis API | Where to fetch signing keys from. |
 | `publicKeys` | `VarisPublicKey[]` | None | Uses these keys instead of fetching any. Use it in unit tests. |
 | `maxClockSkewSeconds` | `number` | `300` | How far a request's timestamp can be from your server's clock. |
+| `waitUntil` | `(promise: Promise<unknown>) => void` | None | Your serverless host's `waitUntil`, which keeps a function running until a long-running task's result is sent. Leave it out on Next.js, Vercel, Netlify Functions, Cloudflare Workers, and servers that keep running: the SDK handles those itself. |
 
 ## `new Varis().services.define`
 
@@ -113,12 +117,12 @@ Your editor completes `service_type` and `categories` for you, because the SDK t
 
 Every value must be written out in full, not computed. For the full rules, see [Declare services in code](/publish/create#declare-services-in-code).
 
-## `new Varis().verifyRequest`
- 
+## `new Varis().requests.verify`
+
 Checks that a request comes from Varis.
- 
-You don't need a separate route for Varis. If a route already serves your own users, and you're happy to give agents the same output, add `verifyRequest` beside your existing authorisation check. Let the request through if either check passes:
- 
+
+You don't need a separate route for Varis. If a route already serves your own users, and you're happy to give agents the same output, add `requests.verify` beside your existing authorisation check. Let the request through if either check passes:
+
 ```ts
 import { Varis } from "@usevaris/sdk";
 import { isAuthorisedUser } from "@utils/auth";
@@ -126,53 +130,126 @@ import { isAuthorisedUser } from "@utils/auth";
 const varis = new Varis();
 
 export async function GET(request: Request) {
-  const isAuthorised = (await varis.verifyRequest(request)) || (await isAuthorisedUser(request));
- 
-  if (!isAuthorised) {
+  const isVaris = await varis.requests.verify(request);
+  if (!isVaris && !(await isAuthorisedUser(request))) {
     return new Response("Unauthorized", { status: 401 });
   }
- 
+
   // The rest of your route, unchanged.
 }
 ```
- 
+
 Replace `isAuthorisedUser` with however your route checks its users today.
- 
+
 A request from Varis comes from an agent, not one of your users, so it carries no user session. If the rest of your route reads the current user, give Varis requests a path that doesn't need one. For more information, see [Handle requests](/publish/handle-requests).
- 
+
 If a route serves only Varis, the check is shorter:
- 
+
 ```ts
-if (!(await varis.verifyRequest(request))) {
+if (!(await varis.requests.verify(request))) {
   return new Response("Unauthorized", { status: 401 });
 }
 ```
- 
+
 ### Arguments
- 
-`verifyRequest` takes the incoming request, in either form:
- 
+
+`requests.verify` takes the incoming request, in either form:
+
 - A Web `Request`, as in Next.js route handlers, Hono, Deno, Bun, and Cloudflare Workers.
-- A Node.js `req`, as in Express, Fastify, and Next.js Pages Router API routes.
+- A Node.js `req`, as in Express.
 
 <Callout type="warn">
-Call `verifyRequest` before anything reads the request body. It clones the request and verifies against the cloned copy. So, the actual request remains intact for you to read afterwards. 
+With a Web `Request`, call `requests.verify` before anything reads the body. It verifies against a copy, so you can still read the body afterwards. If you read the body first, it throws `TypeError`.
 
-If you read the request body before calling `verifyRequest`, the request arrives tampered and the signature verification fails with `TypeError`. If you really need to read the request body earlier, read a clone.
+With a Node.js `req`, register a JSON body parser, such as `express.json()`, before the route. `requests.verify` checks the signature against `req.body`, or against `req.rawBody` if your parser keeps the raw bytes. It reads the path from `req.originalUrl`, so it works inside a mounted router.
 </Callout>
- 
+
+`requests.verify` remembers its answer for each request, so calling it again for the same request costs nothing.
+
 ### Return value
- 
+
 - `true` if the request comes from Varis.
 - `false` if it doesn't, such as a missing or wrong signature, or a timestamp more than 5 minutes out.
+
 ### Errors
- 
+
 - **`VarisKeyFetchError`:** it couldn't load the Varis signing keys. That's a temporary problem on your side, not a bad request, so respond with `503`, not `401`.
-- **`TypeError`:** your code read the request body before calling `verifyRequest`. Call it first.
+- **`TypeError`:** your code read a Web `Request` body before calling `requests.verify`, or a Node.js `POST` request has no parsed body.
+
 ### Test requests
- 
-`verifyRequest` also verifies requests from `varis test` on your machine, with no changes to your code. For more information, see [Local development](/cli/local-development).
- 
+
+`requests.verify` also verifies requests from `varis test` on your machine, with no changes to your code. For more information, see [Local development](/cli/local-development).
+
+## `new Varis().requests.handleOnServer`
+
+Lets a call take longer than 30 seconds while the work runs in the route. For a guide, see [Handle long-running tasks](/publish/long-running-tasks#run-the-work-in-the-route).
+
+```ts
+return varis.requests.handleOnServer(request, renderVideo(request));
+```
+
+### Arguments
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `request` | `Request` or a Node.js `req` | The incoming request. |
+| `work` | `Promise` | The call to the route's existing work, such as `renderVideo(request)`. Web-style work resolves to a `Response`. Express-style work writes to `res`, which the SDK finds at `req.res`. |
+
+### Return value
+
+- For a request that isn't from Varis, or work that answers within 20 seconds: what the work resolves to.
+- Otherwise: a `202` `Response` with `{"status": "started"}`. The SDK sends the work's answer to Varis when it's ready. In Express, the SDK has already sent the `202`, so ignore the return value.
+
+### Errors
+
+If the work throws within 20 seconds, `handleOnServer` throws the same error. After that, the SDK fails the call instead, and logs the error.
+
+## `new Varis().requests.delegateToWorker`
+
+Hands a call to a queue worker. Tells Varis that the call has started, and waits for Varis to confirm. For a guide, see [Handle long-running tasks](/publish/long-running-tasks#run-the-work-in-a-queue-worker).
+
+```ts
+const details = await varis.requests.delegateToWorker(req);
+```
+
+### Arguments
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `request` | `Request` or a Node.js `req` | The incoming request. |
+
+### Return value
+
+- For a request from Varis: a `VarisNotificationDetails` object. Put it in the queue message, and pass it to `requests.handleInWorker`.
+- For any other request: `null`.
+
+### Errors
+
+- **`Error`:** Varis couldn't be reached, or the call has already ended. Let the route fail, and don't queue the job. Varis refunds the call.
+
+## `new Varis().requests.handleInWorker`
+
+Runs a queued job, and reports on the call from the worker until the job ends.
+
+```ts
+await varis.requests.handleInWorker(job.data.varis, () => render(job.data.input));
+```
+
+### Arguments
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `notificationDetails` | `VarisNotificationDetails`, `null`, or `undefined` | What `requests.delegateToWorker` returned. With `null` or `undefined`, the job runs without reporting to Varis. |
+| `runJob` | `() => Promise<Output>` | Runs the job. Its return value is the call's result. |
+
+### Return value
+
+What `runJob` returns. If `runJob` throws, `handleInWorker` fails the call, and then throws the same error.
+
+## `new Varis().verifyRequest`
+
+Deprecated. Use `requests.verify`, which takes the same request and gives the same answer. `verifyRequest` calls it, and logs a warning once per process. SDK 2.0.0 removes it.
+
 ## Exports
 
 | Export | Kind | Description |
@@ -181,6 +258,10 @@ If you read the request body before calling `verifyRequest`, the request arrives
 | `VarisKeyFetchError` | Class | Thrown when the signing keys can't load. |
 | `VarisOptions` | Type | The options for `new Varis()`. |
 | `VarisPublicKey` | Type | A signing key: `{ kid, public_key_pem }`. |
+| `VarisNotificationDetails` | Type | What a worker needs to report on a call: `{ invocationId, notificationToken, notificationUrl }`. |
+| `VarisRequest` | Type | Any request the SDK accepts: a Web `Request` or a `NodeRequest`. |
+| `NodeRequest` | Type | The parts of a Node.js `req` that the SDK reads. |
+| `NodeResponse` | Type | The parts of a Node.js `res` that the SDK reads and wraps. |
 | `ServiceDefinition` | Type | The fields `define` accepts. |
 | `ServiceType` | Type | Every allowed `service_type`. |
 | `ServiceCategory` | Type | Every allowed category. |
@@ -189,9 +270,10 @@ If you read the request body before calling `verifyRequest`, the request arrives
 
 ## Instructions for coding agents
 
-The SDK ships with instructions for coding agents in `node_modules/@usevaris/sdk/docs/agents.md`. `varis init` points your project's `AGENTS.md` at them, so Claude Code, Cursor, and other agents can declare and verify services correctly without reading these docs.
+The SDK ships with instructions for coding agents in `node_modules/@usevaris/sdk/docs/agents.md`. `varis init` points your project's `AGENTS.md` at them, so Claude Code, Cursor, and other agents can declare services, verify requests, and handle long-running tasks correctly without reading these docs.
 
 ## What's next
 
 - [Publish a service](/publish/create).
 - [Handle requests](/publish/handle-requests).
+- [Handle long-running tasks](/publish/long-running-tasks).

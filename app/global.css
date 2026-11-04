@@ -7,9 +7,9 @@
    Varis theme
 
    The brand's colours (.brand/03-tokens in the varis repository) on two
-   layers: the page surface, where the sidebar sits, and the panel, the
-   bordered container that holds the content. Fumadocs sets dark mode with a
-   .dark class, which follows the system.
+   backgrounds: the page surface, which everything sits on from md up, and
+   the panel, the page's colour on phones and for popovers and cards.
+   Fumadocs sets dark mode with a .dark class, which follows the system.
 
    Orange is used sparingly, as the old blue was: the Dashboard button and
    API field names. Everything else, links and the current page included,
@@ -90,11 +90,11 @@
   --font-sans: var(--font-geologica);
   --font-mono: var(--font-jetbrains-mono);
 
-  /* Geologica runs a step heavier than its numbers, so each weight is set
-     one step lighter, as in the main app: body text at 300 stays quieter
-     than the headings. */
-  --font-weight-normal: 300;
-  --font-weight-medium: 400;
+  /* Geologica runs heavier than its numbers, so the text weights are set
+     lighter than in the main app: body text at 250 reads as regular, well
+     below the headings. */
+  --font-weight-normal: 250;
+  --font-weight-medium: 350;
   --font-weight-semibold: 500;
   --font-weight-bold: 600;
 
@@ -113,7 +113,7 @@
 /* All text at sharpness 100, so every stroke ends in a clean cut. Unlayered,
    so it beats the typography plugin's heavier headings and bold. */
 body {
-  font-weight: 300;
+  font-weight: 250;
   font-variation-settings: "SHRP" 100;
 }
 
@@ -163,13 +163,14 @@ h4 {
   color: var(--muted);
 }
 
-/* The Dashboard button renders in Fumadocs' header and in the sidebar's
-   title row. The header keeps it; the sidebar already has the topbar's. */
+/* The Dashboard button renders in Fumadocs' phone header and in the
+   sidebar's title row. The phone header keeps it; from md up the sidebar's
+   title row is hidden, and #docs-header has its own. */
 #nd-sidebar .docs-dashboard-link {
   display: none;
 }
 
-/* In the phone header, the button follows search, as in the topbar: the
+/* In the phone header, the button follows search, as in #docs-header: the
    title pushes the rest right, and the button's slot moves after the
    search icon, before the menu. */
 #nd-subnav > :first-child {
@@ -188,30 +189,44 @@ h4 {
 /* ---------------------------------------------------------------------------
    Layout
 
-   From md up the page never scrolls. The sidebar sits on the surface, and
-   #docs-panel (components/docs-panel.tsx) fills the main and
-   table-of-contents columns of Fumadocs' layout grid at a fixed height. The
-   panel itself doesn't scroll: #docs-topbar is laid over #docs-scroll, which
-   does, so the page and its scrollbar slide under the topbar. #docs-scroll
-   is a grid reusing Fumadocs' area names, so the article and table of
-   contents land where they would in the stock layout, and Fumadocs' sticky
-   offsets are redefined against it: row 1 is the topbar.
+   From md up the page never scrolls. #docs-header
+   (components/docs-header.tsx) runs across the top of the surface: the logo
+   and the controls, with the section tabs below them. Under it,
+   #nd-docs-layout is the content container, filling the rest of the
+   screen, with no border or background of its own. It holds the sidebar and #docs-panel side
+   by side, with space between them and no rule. The sidebar and
+   #docs-scroll are the only scroll containers. #docs-scroll is a grid
+   reusing Fumadocs' area names, so the article and table of contents land
+   where they would in the stock layout, and Fumadocs' sticky offsets are
+   redefined against it.
 
-   Below md the panel and scroller are `display: contents`, so their
-   children fall back into the stock layout, and the topbar is hidden.
+   Below md the header is hidden, and the panel and scroller are
+   `display: contents`, so their children fall back into the stock layout.
    --------------------------------------------------------------------------- */
 #docs-panel,
 #docs-scroll {
   display: contents;
 }
 
-#docs-topbar {
+#docs-header {
   display: none;
 }
 
 @media (width >= 48rem) {
-  /* The shell is the screen: it never scrolls or bounces. The sidebar and
-     the panel are the only scroll containers. */
+  :root {
+    --docs-header-strip: 2.5rem;
+    --docs-tabs: 1.75rem;
+    /* The header's fade, laid over the top of the page. */
+    --docs-fade: 3.5rem;
+    --docs-gutter: 0.75rem;
+    /* The content container fills the screen below the header, less the
+       gutter under it. */
+    --docs-container-height: calc(
+      100dvh - var(--docs-header-strip) - var(--docs-tabs) - var(--docs-gutter)
+    );
+  }
+
+  /* The shell is the screen: it never scrolls or bounces. */
   html,
   body {
     height: 100dvh;
@@ -219,21 +234,105 @@ h4 {
     overscroll-behavior: none;
   }
 
-  /* Two columns: the sidebar and the panel. Fumadocs sets its own template
-     inline, with gutters and a capped width, hence !important. Collapsing
-     the sidebar animates --fd-sidebar-col to 0, so the panel takes the
-     whole width. */
+  /* The logo and the first tab line up with the sidebar's items. */
+  #docs-header {
+    position: relative;
+    z-index: 40;
+    display: block;
+    flex: none;
+    padding-inline: calc(var(--docs-gutter) + 1rem);
+  }
+
+  /* The header ends in a fade: its surface carries on over the top of the
+     page on an eased curve, so the page and the sidebar scroll in behind the
+     header rather than stopping at a hard edge. It overlaps the page's own
+     top space, so it takes none of its own. */
+  #docs-header::after {
+    content: '';
+    position: absolute;
+    inset: 100% 0 auto;
+    height: var(--docs-fade);
+    pointer-events: none;
+    /* An ease-out curve: mostly solid near the header, then a long, light
+       tail, so the edge is felt rather than seen. */
+    background: linear-gradient(
+      to bottom,
+      var(--surface),
+      color-mix(in srgb, var(--surface) 88%, transparent) 15%,
+      color-mix(in srgb, var(--surface) 68%, transparent) 30%,
+      color-mix(in srgb, var(--surface) 46%, transparent) 45%,
+      color-mix(in srgb, var(--surface) 27%, transparent) 60%,
+      color-mix(in srgb, var(--surface) 12%, transparent) 75%,
+      color-mix(in srgb, var(--surface) 3%, transparent) 90%,
+      transparent
+    );
+  }
+
+  #docs-header-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    height: var(--docs-header-strip);
+  }
+
+  /* Each tab is its section's icon and name. The current one is marked
+     by weight and colour alone: graphite text a step heavier, and its icon
+     in the orange used for text. */
+  #docs-tabs {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    height: var(--docs-tabs);
+  }
+
+  .docs-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+    transition: color 80ms;
+  }
+
+  .docs-tab svg {
+    width: 0.9375rem;
+    height: 0.9375rem;
+    flex: none;
+    transition: color 80ms;
+  }
+
+  .docs-tab:hover {
+    color: var(--fg);
+  }
+
+  .docs-tab[data-active='true'] {
+    font-weight: 500;
+    color: var(--fg);
+  }
+
+  .docs-tab[data-active='true'] svg {
+    color: var(--accent);
+  }
+
+  /* Two columns: the sidebar and the page. Fumadocs sets its own template
+     inline, with gutters and a capped width, hence !important. */
   #nd-docs-layout {
+    --fd-docs-height: var(--docs-container-height);
+
     grid-template:
       "sidebar panel" 1fr / var(--fd-sidebar-col) minmax(0, 1fr) !important;
-    height: 100dvh;
+    height: var(--docs-container-height);
+    min-height: 0;
+    margin: 0 var(--docs-gutter) var(--docs-gutter);
     overflow: hidden;
   }
 
-  /* The sidebar's content stops short of its right edge, leaving room
-     before the panel. */
+
+  /* The sidebar sits on the surface, with no rule beside it. Its
+     content stops short of its right edge, leaving space before the page. */
   #nd-sidebar:not([data-collapsed="true"]) {
     align-items: flex-start;
+    padding-top: 2rem;
     background-color: transparent;
     border-color: transparent;
   }
@@ -247,52 +346,35 @@ h4 {
     font-size: 0.8125rem;
   }
 
-  /* The title row, nudged up so the space above it matches the space
-     below it. */
-  #nd-sidebar > div:first-child > div:first-child {
-    margin-top: -4px;
-  }
-
-  /* A collapsed sidebar leaves completely: no peek on hover, and no
-     floating button. The toggle and the search live in the topbar, so the
-     sidebar's own copies go. */
+  /* The header has the logo, search, the section tabs, GitHub, and the
+     theme switch, so the sidebar's title block and footer go. The sidebar
+     doesn't collapse: no peek on hover, and no floating button. */
+  #nd-sidebar > div:first-child,
+  #nd-sidebar > div:last-child:not(:first-child),
   #nd-docs-layout[data-sidebar-collapsed="true"] [data-sidebar-placeholder],
-  [data-sidebar-panel],
-  #nd-sidebar button[aria-controls="nd-sidebar"],
-  #nd-sidebar [data-search-full] {
-    display: none;
-  }
-
-  /* GitHub and the theme switch move to the topbar. */
-  #nd-sidebar > div:last-child:not(:first-child) {
+  [data-sidebar-panel] {
     display: none;
   }
 
   #docs-panel {
-    /* The topbar is a solid row for its controls, then a fade below it. */
-    --topbar-row: 2rem;
-    --topbar-fade: 2rem;
-    --fd-docs-height: calc(100dvh - 1.5rem);
-    --fd-docs-row-1: var(--topbar-row);
-    --fd-docs-row-2: var(--topbar-row);
-    --fd-docs-row-3: calc(var(--topbar-row) + var(--fd-toc-popover-height));
+    --fd-docs-height: var(--docs-container-height);
+    --fd-docs-row-1: 0px;
+    --fd-docs-row-2: 0px;
+    --fd-docs-row-3: var(--fd-toc-popover-height);
 
     position: relative;
     display: block;
     grid-area: panel;
-    height: var(--fd-docs-height);
-    margin: 0.75rem;
+    height: 100%;
     overflow: hidden;
-    border: 1px solid var(--line);
-    background: var(--panel);
   }
 
-  /* Inset from the panel's edge, so the scrollbar runs inside the panel
-     rather than on its border. */
+  /* Inset a little from the container's edge, so the scrollbar doesn't run
+     against the screen's. */
   #docs-scroll {
-    /* The table of contents fills this height: the panel's, less its border
-       and the scroller's bottom inset. */
-    --fd-docs-height: calc(100dvh - 1.5rem - 2px - 0.25rem);
+    /* The table of contents fills this height: the container's, less the
+       scroller's bottom inset. */
+    --fd-docs-height: calc(var(--docs-container-height) - 0.25rem);
 
     display: grid;
     grid-template:
@@ -301,53 +383,18 @@ h4 {
       / minmax(0, 1fr) var(--fd-toc-width);
     position: absolute;
     inset: 0 0.25rem 0.25rem 0;
-    padding-top: var(--topbar-row);
     overflow-y: auto;
     overscroll-behavior: contain;
-    scroll-padding-top: calc(var(--topbar-row) + var(--topbar-fade));
+    scroll-padding-top: var(--docs-fade);
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--fg) 14%, transparent) transparent;
   }
 
-  /* The scroller's padding clears the solid row; this clears the fade, so
-     nothing sits in it until the page scrolls. */
+  /* At rest, the page's first line sits in the fade's faint tail; it
+     dims only as it scrolls up. */
   #docs-scroll [data-layout-content],
   #docs-scroll #nd-toc {
-    padding-top: calc(var(--topbar-fade) + 0.25rem);
-  }
-
-  /* The controls sit in the solid top row. Below it the bar fades to
-     nothing on an eased curve, so the page tapers off smoothly as it slides
-     underneath. It covers the top of the scrollbar too. */
-  #docs-topbar {
-    position: absolute;
-    inset: 0 0 auto;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    height: calc(var(--topbar-row) + var(--topbar-fade));
-    padding: 0 0.75rem 1rem 1.25rem;
-    background: linear-gradient(
-      to bottom,
-      var(--panel) var(--topbar-row),
-      color-mix(in srgb, var(--panel) 82%, transparent) calc(
-        var(--topbar-row) + var(--topbar-fade) * 0.25
-      ),
-      color-mix(in srgb, var(--panel) 50%, transparent) calc(
-        var(--topbar-row) + var(--topbar-fade) * 0.5
-      ),
-      color-mix(in srgb, var(--panel) 18%, transparent) calc(
-        var(--topbar-row) + var(--topbar-fade) * 0.75
-      ),
-      transparent
-    );
-    /* Only the controls take clicks; the fade lets them through. */
-    pointer-events: none;
-  }
-
-  #docs-topbar > * {
-    pointer-events: auto;
+    padding-top: 2.5rem;
   }
 }
 
@@ -401,7 +448,6 @@ h4 {
 
 /* The breadcrumbs share the sidebar's tree, method badges included; they
    read better as plain titles. */
-#docs-topbar .tree-method,
 #nd-page .tree-method {
   display: none;
 }
@@ -409,9 +455,9 @@ h4 {
 /* ---------------------------------------------------------------------------
    Phones
 
-   Fumadocs' own layout, with the page scrolling. Its header bar matches the
-   panel's topbar: solid, with no rule, and a fade below it that the page
-   tapers into as it scrolls underneath.
+   Fumadocs' own layout, with the page scrolling. Its header bar is solid,
+   with no rule, and a fade below it that the page tapers into as it scrolls
+   underneath.
    --------------------------------------------------------------------------- */
 @media (width < 48rem) {
   html {

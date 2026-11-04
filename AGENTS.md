@@ -9,7 +9,7 @@ The docs have two audiences:
 
 - **Providers**, developers who publish a service with the TypeScript SDK
   (`@usevaris/sdk`) and the `varis` CLI, or by hand with `varis.json`.
-- **Agent developers**, who call `POST /v1/invoke` on `api.usevaris.com` or
+- **Agent developers**, who call `POST /v1/invocations` on `api.usevaris.com` or
   connect the MCP server with an agent key.
 
 ## Layout
